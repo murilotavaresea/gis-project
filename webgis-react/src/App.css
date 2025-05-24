@@ -1,0 +1,434 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* MAPA */
+#map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: 0;
+}
+
+/* SIDEBAR */
+#sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 100%;
+  background-color: rgb(0, 54, 65, 0.95);
+  border-right: 1px solid #ccc;
+  padding: 15px;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+  font-family: 'Asap Bold', sans-serif;
+  color: #ffffff
+}
+
+#sidebar h2 {
+  margin-top: 0;
+  font-size: 18px;
+}
+
+#toggle-sidebar {
+  position: absolute;
+  top: 15px;
+  left: 310px;
+  z-index: 1100;
+  background-color: rgb(0, 54, 65, 0.9);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.2);
+  transition: left 0.3s ease;
+}
+
+.sidebar-hidden #sidebar {
+  transform: translateX(-100%);
+}
+.sidebar-hidden #toggle-sidebar {
+  left: 15px;
+}
+.sidebar-hidden footer {
+  left: 0;
+}
+
+/* FOOTER */
+footer {
+  position: absolute;
+  bottom: 0;
+  left: 300px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 5px 10px;
+  font-size: 12px;
+  border-top: 1px solid #ccc;
+  z-index: 1000;
+}
+
+/* CAMADAS CENTRALIZADAS */
+#layer-control {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  background: rgb(0, 54, 65, 0.8);
+  color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px #003641;
+  z-index: 1100;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* Recolher/expandir */
+#layer-control.collapsed .layer-list {
+  display: none;
+}
+
+#layer-control .layer-header::after {
+  content: "";
+  display: inline-block;
+  margin-left: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  padding: 3px;
+  transform: rotate(45deg);
+  transition: transform 0.3s ease;
+}
+
+#layer-control.collapsed .layer-header::after {
+  transform: rotate(-45deg);
+}
+
+
+.layer-header:hover {
+  background: #003641;
+}
+
+.layer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  font-weight: 600;
+  font-size: 16px;
+  background-color: #3a3a3a80;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  cursor: pointer;
+}
+
+.layer-header i {
+  font-size: 18px;
+}
+
+.layer-list {
+  padding: 10px 15px;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #000000;
+  max-height: 300px;
+  overflow-y: auto;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.layer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f5f5f5;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  user-select: none;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.layer-item:hover {
+  background: #e0e0e0;
+}
+
+.layer-item button {
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.layer-item span:not(.drag-handle) {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.drag-handle {
+  cursor: grab;
+  margin-right: 8px;
+  user-select: none;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* BARRA DE FERRAMENTAS MODERNA À DIREITA */
+#tool-sidebar {
+  position: absolute;
+  top: 70px;
+  right: 0;
+  background-color: rgb(0, 54, 65, 0.8);
+  width: 56px;
+  padding: 12px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1100;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+#tool-sidebar button {
+  width: 42px;
+  height: 42px;
+  margin: 6px 0;
+  background-color: #00A091;
+  border: none;
+  border-radius: 8px;
+  font-size: 20px;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+#tool-sidebar button:hover {
+  background-color: #009285;
+  transform: scale(1.05);
+}
+
+/* SUBMENU DE FERRAMENTAS DE DESENHO */
+.tool-submenu {
+  background-color: rgb(193, 215, 48, 0.3);
+  padding: 8px 0;
+  margin-top: 6px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tool-submenu button {
+  width: 36px;
+  height: 36px;
+  margin: 5px 0;
+  background-color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  color: #333;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.tool-submenu button:hover {
+  transform: scale(1.05);
+  background-color: #ddd;
+}
+
+/* PAINEL DE MEDIÇÃO */
+#measurement-panel {
+  position: absolute;
+  top: 100px;
+  right: 70px;
+  background-color: rgb(0, 54, 65, 0.9);
+  color: #ffffff;
+  padding: 16px;
+  border-radius: 10px;
+  width: 260px;
+  z-index: 1200;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  font-family: 'Segoe UI', sans-serif;
+}
+
+#measurement-panel h3 {
+  margin-top: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 12px;
+}
+
+#measurement-panel label {
+  font-size: 14px;
+}
+
+#measurement-panel select {
+  margin-left: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: none;
+  font-size: 14px;
+}
+
+#measurement-panel strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+#measurement-panel button {
+  margin-top: 14px;
+  background-color: #00A091;
+  border: none;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+#measurement-panel button:hover {
+  background-color: #009285;
+}
+
+.close-button {
+  position: absolute;
+  top: -4px;
+  right: 8px;
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+  font-weight: bold;
+  padding: 0;
+  z-index: 1201;
+}
+
+.close-button:hover {
+  color: rgb(255, 136, 136);
+}
+
+/* Botão de zoom ajustado para quando o sidebar está visível */
+.leaflet-control-zoom {
+  position: absolute !important;
+  top: 70px;
+  left: 320px; /* espaço para não colidir com sidebar */
+  z-index: 1101 !important;
+  transition: left 0.3s ease; /* ✅ suaviza a movimentação */
+}
+
+/* Botão de zoom reposicionado quando o sidebar estiver recolhido */
+.sidebar-hidden .leaflet-control-zoom {
+  left: 10px !important;
+}
+.painel-busca-car {
+  position: absolute;
+  top: 357px;
+  right: 60px;
+  background: rgba(0, 54, 65, 0.95);
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  width: 250px;
+  z-index: 1000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  font-family: sans-serif;
+}
+
+.painel-busca-car .topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.painel-busca-car input {
+  width: 100%;
+  padding: 8px;
+  margin: 6px 0 12px;
+  border-radius: 4px;
+  border: none;
+  font-size: 14px;
+}
+
+.painel-busca-car button {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.painel-busca-car button:nth-of-type(1) {
+  background-color: #009285; /* botão Buscar */
+  color: #000;
+  border: none;
+}
+
+.painel-busca-car button:nth-of-type(2),
+.painel-busca-car button:nth-of-type(3) {
+  background-color: transparent;
+  color: #fff;
+  border: 1px solid #ccc;
+}
+
+.painel-busca-car button:hover {
+  background-color: #009285;
+}
+
+.painel-busca-car .fechar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  color: white;
+  border: none;
+  font-size: 14px;
+  line-height: 1;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Personaliza os vértices durante a edição */
+.leaflet-div-icon.leaflet-editing-icon {
+  width: 8px !important;
+  height: 8px !important;
+  margin-left: -4px !important;
+  margin-top: -4px !important;
+  background-color: white !important;
+  border: 2px solid #3388ff !important;
+  border-radius: 2px !important;
+}
+

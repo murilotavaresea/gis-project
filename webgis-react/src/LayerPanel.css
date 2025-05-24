@@ -1,0 +1,28 @@
+.painel-camadas {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 250px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    font-family: sans-serif;
+  }
+  
+  .camada-item {
+    display: flex;
+    align-items: center;
+    background: #f1f1f1;
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: grab;
+  }
+  
+  .drag-handle {
+    margin-right: 8px;
+    cursor: grab;
+  }

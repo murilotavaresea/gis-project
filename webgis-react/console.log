@@ -1,0 +1,5 @@
+const resetMapView = () => {
+  const map = mapRef.current;
+  console.log('🔄 Resetando visualização...', map);
+  if (map) map.setView(POSICAO_INICIAL, ZOOM_INICIAL);
+};
