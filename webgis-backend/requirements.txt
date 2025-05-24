@@ -1,6 +1,7 @@
 flask
 flask-cors
 gunicorn
+sqlalchemy
+psycopg2-binary
 geopandas
 shapely
-turfpy
