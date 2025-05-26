@@ -11,7 +11,7 @@ from routes.diferenca import diferenca_bp
 
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://seufront.onrender.com"}})
+CORS(app, resources={r"/*": {"origins": "https://gis-project-azsp.onrender.com"}})
 
 
 app.register_blueprint(diferenca_bp)
