@@ -20,7 +20,7 @@ export default function ImportadorCAR({
     const resposta = await fetch(`${config.API_BASE_URL}/importar-car`, {
   method: "POST",
   body: formData,
-});
+})
       .then((res) => res.json())
       .then((data) => {
         Object.entries(data).forEach(([filename, geojson]) => {
