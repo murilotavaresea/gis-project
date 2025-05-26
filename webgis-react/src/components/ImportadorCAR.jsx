@@ -18,12 +18,12 @@ export default function ImportadorCAR({
     formData.append("file", file);
 
     try {
-      const res = await fetch(`${config.API_BASE_URL}/importar-car`, {
+      const response = await fetch(`${config.API_BASE_URL}/importar-car`, {
         method: "POST",
         body: formData,
       });
 
-      const data = await res.json();
+      const data = await response.json();
 
       Object.entries(data).forEach(([filename, geojson]) => {
         if (!geojson.features) {
@@ -71,7 +71,6 @@ export default function ImportadorCAR({
     }
   };
 
-  // ✅ ESTE return é do componente, FORA da função handleImportCAR
   return (
     <input
       type="file"
