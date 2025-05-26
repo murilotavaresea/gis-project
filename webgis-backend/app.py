@@ -11,7 +11,8 @@ from routes.diferenca import diferenca_bp
 
 
 app = Flask(__name__)
-CORS(app)  # ✅ Habilita CORS para todas as rotas
+CORS(app, resources={r"/*": {"origins": "https://seufront.onrender.com"}})
+
 
 app.register_blueprint(diferenca_bp)
 
