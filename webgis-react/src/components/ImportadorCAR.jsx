@@ -1,5 +1,6 @@
 import { useMap } from "react-leaflet";
 import L from "leaflet";
+import config from "../config";
 
 export default function ImportadorCAR({
   fileInputRefCAR,
@@ -16,10 +17,10 @@ export default function ImportadorCAR({
     const formData = new FormData();
     formData.append("file", file);
 
-    fetch("http://localhost:5000/importar_car", {
-      method: "POST",
-      body: formData
-    })
+    const resposta = await fetch(`${config.API_BASE_URL}/importar-car`, {
+  method: "POST",
+  body: formData,
+});
       .then((res) => res.json())
       .then((data) => {
         Object.entries(data).forEach(([filename, geojson]) => {
