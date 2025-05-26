@@ -6,7 +6,7 @@ import 'leaflet-draw'; // importante para registrar os eventos
 import BotaoRecentrar from './BotaoRecentrar';
 import { useMap } from 'react-leaflet';
 import BuscaCAR from './BuscaCAR';
-
+import config from "../config";
 
 
 
@@ -348,7 +348,7 @@ const gerarAreaBeneficiavel = async () => {
 
   try {
     // 🔁 Envia ao backend
-    const response = await fetch("http://localhost:5000/gerar-area-beneficiavel", {
+    const response = await fetch(`${config.API_BASE_URL}/gerar-area-beneficiavel`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
