@@ -20,11 +20,11 @@ app.register_blueprint(importar_car_bp)
 
 # 🔌 Conexão com o banco
 conn = psycopg2.connect(
-    host="localhost",
-    port="5433",  # ou 5433 se estiver usando a versão 16
-    database="webgis_local",
-    user="postgres",
-    password="1234",  # ou a senha que você definiu
+    host="webgis.cbiqq00q28p0.us-east-2.rds.amazonaws.com",  # ✅ aqui vai o endpoint
+    port="5432",
+    database="postgres",  # ✅ nome do banco, que por padrão é "postgres"
+    user="murilotavares",
+    password="Mu12rilo",
     cursor_factory=RealDictCursor
 )
 # 🔁 Rota para atualizar shapefiles manualmente
