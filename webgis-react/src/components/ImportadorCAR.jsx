@@ -18,7 +18,7 @@ export default function ImportadorCAR({
     formData.append("file", file);
 
     try {
-      const response = await fetch(`${config.API_BASE_URL}/importar-car`, {
+      const response = await fetch(`${config.API_BASE_URL}/importar_car`, {
         method: "POST",
         body: formData,
       });
