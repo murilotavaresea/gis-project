@@ -29,7 +29,8 @@ import {
 
 window.L = L;
 
-const GEOSERVER_WFS_URL = 'http://localhost:8080/geoserver/webgis/ows';
+const GEOSERVER_WFS_URL = 'http://3.144.119.126:8080/geoserver/webgis/ows';
+
 
 
 
