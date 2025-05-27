@@ -27,7 +27,7 @@ body {
   left: 0;
   width: 300px;
   height: 100%;
-  background-color: rgb(0, 54, 65, 0.95);
+  background-color: rgb(0, 24, 43, 0.9);
   border-right: 1px solid #ccc;
   padding: 15px;
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
@@ -48,7 +48,7 @@ body {
   top: 15px;
   left: 310px;
   z-index: 1100;
-  background-color: rgb(0, 54, 65, 0.9);
+  background-color: rgb(0, 24, 43, 0.9);
   border: 1px solid #ccc;
   border-radius: 4px;
   padding: 6px 10px;
@@ -87,7 +87,7 @@ footer {
   left: 50%;
   transform: translateX(-50%);
   width: 320px;
-  background: rgb(0, 54, 65, 0.8);
+  background: rgb(0, 51, 62, 0.8);
   color: #ffffff;
   border-radius: 12px;
   box-shadow: 0 4px 15px #003641;
@@ -117,7 +117,7 @@ footer {
 
 
 .layer-header:hover {
-  background: #003641;
+  background: #00182B;
 }
 
 .layer-header {
@@ -127,7 +127,7 @@ footer {
   padding: 12px 18px;
   font-weight: 600;
   font-size: 16px;
-  background-color: #3a3a3a80;
+  background-color: #00333E;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
   cursor: pointer;
@@ -139,7 +139,7 @@ footer {
 
 .layer-list {
   padding: 10px 15px;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgb(0, 51, 62, 0.1);
   color: #000000;
   max-height: 300px;
   overflow-y: auto;
@@ -195,14 +195,14 @@ footer {
   position: absolute;
   top: 70px;
   right: 0;
-  background-color: rgb(0, 54, 65, 0.8);
+  background-color: rgb(2, 23, 46, 0.9);
   width: 56px;
   padding: 12px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   z-index: 1100;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+  box-shadow: -2px 0 8px rgb(0, 51, 62, 0.3);
   border-top-left-radius: 8px;
   border-bottom-left-radius: 8px;
 }
@@ -211,7 +211,7 @@ footer {
   width: 42px;
   height: 42px;
   margin: 6px 0;
-  background-color: #00A091;
+  background-color: rgb(0, 223, 155, 0.3);
   border: none;
   border-radius: 8px;
   font-size: 20px;
@@ -224,13 +224,13 @@ footer {
 }
 
 #tool-sidebar button:hover {
-  background-color: #009285;
+  background-color: rgb(0, 254, 190, 0.6);
   transform: scale(1.05);
 }
 
 /* SUBMENU DE FERRAMENTAS DE DESENHO */
 .tool-submenu {
-  background-color: rgb(193, 215, 48, 0.3);
+  background-color: rgb(0, 254, 190, 0.2);
   padding: 8px 0;
   margin-top: 6px;
   border-radius: 8px;
@@ -262,7 +262,7 @@ footer {
   position: absolute;
   top: 100px;
   right: 70px;
-  background-color: rgb(0, 54, 65, 0.9);
+  background-color: rgb(2, 23, 46, 0.8);
   color: #ffffff;
   padding: 16px;
   border-radius: 10px;
@@ -300,7 +300,7 @@ footer {
 
 #measurement-panel button {
   margin-top: 14px;
-  background-color: #00A091;
+  background-color: rgb(0, 254, 190, 0.5);
   border: none;
   color: white;
   padding: 8px 14px;
@@ -311,7 +311,7 @@ footer {
 }
 
 #measurement-panel button:hover {
-  background-color: #009285;
+  background-color: rgba(0, 223, 155, 0.5);
 }
 
 .close-button {
@@ -349,7 +349,7 @@ footer {
   position: absolute;
   top: 357px;
   right: 60px;
-  background: rgba(0, 54, 65, 0.95);
+  background: rgb(2, 23, 46, 0.8);
   color: white;
   padding: 15px;
   border-radius: 8px;
