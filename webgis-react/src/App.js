@@ -14,6 +14,9 @@ import BotaoRecentrar from './components/BotaoRecentrar';
 import DrawTools from './components/DrawTools';
 import { LayersControl, TileLayer } from 'react-leaflet';
 import ImportadorCAR from './components/ImportadorCAR';
+import PainelCamadas from './components/PainelCamadas';
+import { getEstiloCamada } from './utils/estiloCamadas';
+
 
 
 
@@ -30,9 +33,7 @@ import {
 
 window.L = L;
 
-const GEOSERVER_WFS_URL = 'https://ambagrodb.com/geoserver/webgis/ows';
-
-
+const GEOSERVER_WFS_URL = 'http://localhost:8080/geoserver/webgis/ows';
 
 
 
@@ -80,7 +81,7 @@ useEffect(() => {
 
 
 
-useEffect(() => {
+ useEffect(() => {
   const camadaIBAMA = {
   nome: "Embargo IBAMA",
   data: null,
@@ -140,7 +141,9 @@ useEffect(() => {
   .catch(err => console.error("❌ Erro ao carregar camada IBAMA:", err));
     });
 }, []);
-  
+
+
+
   const removerDesenhoIndividual = (index) => {
   const desenho = desenhos[index];
   if (desenho && desenho.layer) {
@@ -310,186 +313,24 @@ const resetMapView = () => {
   return (
     <div>
       <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(o => !o)}>
-  <h2>Camadas</h2>
-
-  <h3>Banco de Dados</h3>
-
-<ul>
-  {camadas
-    .filter(c =>
-      !c.nome.toUpperCase().includes('MAPBIOMAS') &&
-      !c.nome.split(':').pop().toUpperCase().startsWith('FPB') &&
-      ![
-        'ASSENTAMENTO',
-        'QUILOMBOLA',
-        'TERRAS INDÍGENAS',
-        'UNIDADES DE CONSERVAÇÃO'
-      ].includes(c.nome.split(':').pop().toUpperCase())
-    )
-    .map((c, index) => {
-      const nomeLimpo = c.nome.includes(':') ? c.nome.split(':')[1] : c.nome;
-      return (
-        <li key={index}>
-          <label>
-            <input
-              type="checkbox"
-              checked={c.visivel}
-              onChange={() => toggleLayer(c.nome)}
-            />
-            {nomeLimpo}
-          </label>
-        </li>
-      );
-    })}
-</ul>
-
-<details style={{ marginTop: '10px' }}>
-  <summary style={{ cursor: 'pointer' }}><strong>Florestas Públicas (FPB)</strong></summary>
-  <ul>
-    {camadas
-      .filter(c => c.nome.split(':').pop().toUpperCase().startsWith('FPB'))
-      .map((c, index) => {
-        const nomeLimpo = c.nome.split(':').pop();
-        return (
-          <li key={index}>
-            <label>
-              <input
-                type="checkbox"
-                checked={c.visivel}
-                onChange={() => toggleLayer(c.nome)}
-              />
-              {nomeLimpo}
-            </label>
-          </li>
-        );
-      })}
-  </ul>
-</details>
-<details style={{ marginTop: '10px' }}>
-  <summary style={{ cursor: 'pointer' }}><strong>Mapbiomas</strong></summary>
-  <ul>
-    {camadas
-      .filter(c => c.nome.toUpperCase().includes('MAPBIOMAS'))
-      .map((c, index) => {
-        const nomeLimpo = c.nome.includes(':') ? c.nome.split(':')[1] : c.nome;
-        return (
-          <li key={index}>
-            <label>
-              <input
-                type="checkbox"
-                checked={c.visivel}
-                onChange={() => toggleLayer(c.nome)}
-              />
-              {nomeLimpo}
-            </label>
-          </li>
-        );
-      })}
-  </ul>
-</details>
-
-
-
-
-<details style={{ marginTop: '10px' }}>
-  <summary style={{ cursor: 'pointer' }}><strong>Áreas Protegidas</strong></summary>
-  <ul>
-    {camadas
-      .filter(c =>
-        ['ASSENTAMENTO', 'QUILOMBOLA', 'TERRAS INDÍGENAS', 'UNIDADES DE CONSERVAÇÃO'].includes(
-          c.nome.split(':').pop().toUpperCase()
-        )
-      )
-      .map((c, index) => {
-        const nomeLimpo = c.nome.split(':').pop();
-        return (
-          <li key={index}>
-            <label>
-              <input
-                type="checkbox"
-                checked={c.visivel}
-                onChange={() => toggleLayer(c.nome)}
-              />
-              {nomeLimpo}
-            </label>
-          </li>
-        );
-      })}
-  </ul>
-</details>
-
-  <h3>Importadas (CAR)</h3>
-<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-  <span>Camadas importadas</span>
-  <button onClick={removerTodasCamadasCAR} style={{ fontSize: '0.8em' }} title="Remover todas">
-    <img src="/icons/lixo.png" alt="Remover todas" style={{ width: '20px', height: '20px' }} />
-  </button>
-</div>
-<ul>
-  {camadasImportadas.map((c, index) => (
-    <li key={index} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <label>
-        <input
-          type="checkbox"
-          checked={c.visivel}
-          onChange={() => toggleCamadaImportada(c.nome)}
-        />
-        {formatarNomeCAR(c.nome)}
-      </label>
-      <button
-        onClick={() => removerCamadaImportada(index)}
-        title="Remover camada"
-        style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-      >
-        <img src="/icons/lixo.png" alt="Excluir" style={{ width: '16px', height: '16px' }} />
-      </button>
-    </li>
-  ))}
-</ul>
-
-
-  <h3>Desenhos Manuais</h3>
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    <span>Todos os desenhos</span>
-    <button onClick={removerTodosDesenhos} style={{ fontSize: '0.8em' }}>
-      <img src="/icons/lixo.png" alt="Remover" style={{ width: '24px', height: '24px' }} />
-    </button>
-  </div>
-  <ul>
-  {desenhos.map((d, i) => (
-    <li key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <label>
-        <input
-          type="checkbox"
-          checked={d.exportar}
-          onChange={() => alternarDesenhoParaExportacao(i)}
-        />
-        {d.tipo}
-      </label>
-      <div>
-        {indiceEditando === i && (
-  <button
-    onClick={finalizarEdicaoIndividual}
-    title="Finalizar edição"
-    style={{ background: 'transparent', border: 'none', cursor: 'pointer', marginRight: '5px' }}
-  >
-    ✅
-  </button>
-)}
-        <button onClick={() => editarDesenhoIndividual(i)} title="Editar" style={{ background: 'transparent', border: 'none', cursor: 'pointer', marginRight: '5px' }}>
-          <img src="/icons/desenho.png" alt="Editar" style={{ width: '16px', height: '16px' }} />
-        </button>
-        
-        <button onClick={() => removerDesenhoIndividual(i)} title="Excluir" style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
-          <img src="/icons/lixo.png" alt="Excluir" style={{ width: '16px', height: '16px' }} />
-        </button>
-      </div>
-    </li>
-  ))}
-</ul>
-
-
+  <PainelCamadas
+    camadas={camadas}
+    toggleLayer={toggleLayer}
+    camadasImportadas={camadasImportadas}
+    toggleCamadaImportada={toggleCamadaImportada}
+    removerCamadaImportada={removerCamadaImportada}
+    removerTodasCamadasCAR={removerTodasCamadasCAR}
+    formatarNomeCAR={formatarNomeCAR}
+    desenhos={desenhos}
+    editarDesenhoIndividual={editarDesenhoIndividual}
+    finalizarEdicaoIndividual={finalizarEdicaoIndividual}
+    removerDesenhoIndividual={removerDesenhoIndividual}
+    alternarDesenhoParaExportacao={alternarDesenhoParaExportacao}
+    removerTodosDesenhos={removerTodosDesenhos}
+    indiceEditando={indiceEditando}
+  />
 </Sidebar>
+
 
 
 
@@ -544,222 +385,24 @@ const resetMapView = () => {
       url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
     />
   </LayersControl.BaseLayer>
+
 </LayersControl>
 
         {camadas.map(c =>
-          c.visivel && c.data ? (
-            <GeoJSON
-              key={c.nome}
-              data={c.data}
-              onEachFeature={(feature, layer) => {
-                feature.properties = feature.properties || {};
-                feature.properties.nome = c.nome;
-                layer.bindPopup(`<b>${c.nome}</b>`);
-              }}
-              style={(feature) => {
-                const nome = c.nome.split(':').pop().toUpperCase();
-              
-                if (nome === 'EMBARGO IBAMA') {
-                  return {
-                    color: 'red',
-                    weight: 2,
-                    dashArray: '5, 5', // estilo tracejado (hashed)
-                    fillOpacity: 0.1
-                  };
-                }
-              
-                if (nome === 'ESTADOS') {
-                  return {
-                    color: 'BLUE',
-                    weight: 1,
-                    fillOpacity: 0
-                  };
-                }
-              
-                if (nome === 'MAPBIOMAS') {
-                  return {
-                    color: '#1f78b4',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-              
-                if (nome === 'ASSENTAMENTO') {
-                  return {
-                    color: '#33a02c',
-                    fillOpacity: 0.2
-                  };
-                }
-              
-                if (nome === 'QUILOMBOLA') {
-                  return {
-                    color: '#6a3d9a',
-                    dashArray: '4,4',
-                    fillOpacity: 0.15
-                  };
-                }
-              
-                if (nome === 'TERRAS INDÍGENAS') {
-                  return {
-                    color: '#e31a1c',
-                    fillOpacity: 0.25
-                  };
-                }
-              
-                if (nome === 'UNIDADES DE CONSERVAÇÃO') {
-                  return {
-                    color: '#ff7f00',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
+  c.visivel && c.data ? (
+    <GeoJSON
+      key={c.nome}
+      data={c.data}
+      style={() => getEstiloCamada(c.nome)}
+      onEachFeature={(feature, layer) => {
+        feature.properties = feature.properties || {};
+        feature.properties.nome = c.nome;
+        layer.bindPopup(`<b>${c.nome}</b>`);
+      }}
+    />
+  ) : null
+)}
 
-                if (nome === 'FPB AC') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-
-                if (nome === 'FPB AL') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB AM') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB AP') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB BA') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB CE') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB GO') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB MA') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB MS') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB MT') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB PA') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB PE') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB PI') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB PR') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB RO') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB RR') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB RS') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB SC') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                if (nome === 'FPB TO') {
-                  return {
-                    color: '#4fb286',
-                    weight: 1.5,
-                    fillOpacity: 0.2
-                  };
-                }
-                
-
-                // estilo padrão
-                return {
-                  color: '#3388ff',
-                  weight: 2,
-                  fillOpacity: 0.1
-                };
-              }}            
-            />
-          ) : null
-        )}
         <FeatureGroup ref={drawnItemsRef}>
  
 </FeatureGroup>
