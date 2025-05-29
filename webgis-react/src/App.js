@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Sidebar from './components/Sidebar';
 import LayerPanel from './components/LayerPanel';
+import JSON5 from 'json5';
 
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -80,6 +81,15 @@ useEffect(() => {
 
 
 useEffect(() => {
+  const camadaIBAMA = {
+  nome: "Embargo IBAMA",
+  data: null,
+  visivel: false,
+  externa: true,
+  url: "https://pamgia.ibama.gov.br/server/services/01_Publicacoes_Bases/adm_embargos_ibama_a/MapServer/WFSServer?service=wfs&version=2.0.0&request=GetFeature&typeName=adm_embargos_ibama_a:base.adm_embargos_ibama_a&outputFormat=GEOJSON"
+};
+
+
   fetch(`${GEOSERVER_WFS_URL}?service=WFS&request=GetCapabilities`)
     .then(res => res.text())
     .then(text => {
@@ -97,20 +107,11 @@ useEffect(() => {
         visivel: false
       }));
 
-      // 👉 camada do IBAMA adicionada manualmente
-      const camadaIBAMA = {
-        nome: "Embargo IBAMA",
-        data: null,
-        visivel: false,
-        externa: true, // opcional: marca como fonte externa
-        url: "https://pamgia.ibama.gov.br/server/services/01_Publicacoes_Bases/adm_embargos_ibama_a/MapServer/WFSServer?service=wfs&version=2.0.0&request=GetFeature&typeName=adm_embargos_ibama_a:base.adm_embargos_ibama_a&outputFormat=GEOJSON"
-      };
-
+      // Junta as camadas do GeoServer com a do IBAMA
       const todasCamadas = [...camadasGeoServer, camadaIBAMA];
-
       setCamadas(todasCamadas);
 
-      // 🔄 Carrega camadas do GeoServer
+      // Carrega as camadas do GeoServer
       nomes.forEach(nome => {
         const url = `${GEOSERVER_WFS_URL}?service=WFS&version=1.0.0&request=GetFeature&typeName=${nome}&outputFormat=application/json`;
         fetch(url)
@@ -122,14 +123,21 @@ useEffect(() => {
           });
       });
 
-      // 🔄 Carrega camada do IBAMA
+      // Carrega a camada do IBAMA
       fetch(camadaIBAMA.url)
-        .then(res => res.json())
-        .then(data => {
-          setCamadas(old =>
-            old.map(c => c.nome === camadaIBAMA.nome ? { ...c, data } : c)
-          );
-        });
+  .then(res => res.text())
+  .then(text => {
+    try {
+      const data = JSON5.parse(text);
+      setCamadas(old =>
+        old.map(c => c.nome === camadaIBAMA.nome ? { ...c, data } : c)
+      );
+    } catch (err) {
+      console.error("❌ Erro ao fazer parse com JSON5 (IBAMA):", err);
+      console.log("🔎 Conteúdo bruto:", text.slice(0, 200));
+    }
+  })
+  .catch(err => console.error("❌ Erro ao carregar camada IBAMA:", err));
     });
 }, []);
   
