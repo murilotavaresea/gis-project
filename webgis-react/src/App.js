@@ -79,35 +79,59 @@ useEffect(() => {
 
 
 
-  useEffect(() => {
-    fetch(`${GEOSERVER_WFS_URL}?service=WFS&request=GetCapabilities`)
-      .then(res => res.text())
-      .then(text => {
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(text, "text/xml");
-        const nodes = xml.getElementsByTagName("FeatureType");
-        const nomes = Array.from(nodes).map(n =>
-          n.getElementsByTagName("Name")[0].textContent
-        );
-        const camadasIniciais = nomes.map(nome => ({
-          nome,
-          data: null,
-          visivel: false
-        }));
-        setCamadas(camadasIniciais);
+useEffect(() => {
+  fetch(`${GEOSERVER_WFS_URL}?service=WFS&request=GetCapabilities`)
+    .then(res => res.text())
+    .then(text => {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(text, "text/xml");
+      const nodes = xml.getElementsByTagName("FeatureType");
 
-        nomes.forEach(nome => {
-          const url = `${GEOSERVER_WFS_URL}?service=WFS&version=1.0.0&request=GetFeature&typeName=${nome}&outputFormat=application/json`;
-          fetch(url)
-            .then(res => res.json())
-            .then(data => {
-              setCamadas(old =>
-                old.map(c => c.nome === nome ? { ...c, data } : c)
-              );
-            });
-        });
+      const nomes = Array.from(nodes).map(n =>
+        n.getElementsByTagName("Name")[0].textContent
+      );
+
+      const camadasGeoServer = nomes.map(nome => ({
+        nome,
+        data: null,
+        visivel: false
+      }));
+
+      // 👉 camada do IBAMA adicionada manualmente
+      const camadaIBAMA = {
+        nome: "Embargo IBAMA",
+        data: null,
+        visivel: false,
+        externa: true, // opcional: marca como fonte externa
+        url: "https://pamgia.ibama.gov.br/server/services/01_Publicacoes_Bases/adm_embargos_ibama_a/MapServer/WFSServer?service=wfs&version=2.0.0&request=GetFeature&typeName=adm_embargos_ibama_a:base.adm_embargos_ibama_a&outputFormat=GEOJSON"
+      };
+
+      const todasCamadas = [...camadasGeoServer, camadaIBAMA];
+
+      setCamadas(todasCamadas);
+
+      // 🔄 Carrega camadas do GeoServer
+      nomes.forEach(nome => {
+        const url = `${GEOSERVER_WFS_URL}?service=WFS&version=1.0.0&request=GetFeature&typeName=${nome}&outputFormat=application/json`;
+        fetch(url)
+          .then(res => res.json())
+          .then(data => {
+            setCamadas(old =>
+              old.map(c => c.nome === nome ? { ...c, data } : c)
+            );
+          });
       });
-  }, []);
+
+      // 🔄 Carrega camada do IBAMA
+      fetch(camadaIBAMA.url)
+        .then(res => res.json())
+        .then(data => {
+          setCamadas(old =>
+            old.map(c => c.nome === camadaIBAMA.nome ? { ...c, data } : c)
+          );
+        });
+    });
+}, []);
   
   const removerDesenhoIndividual = (index) => {
   const desenho = desenhos[index];
