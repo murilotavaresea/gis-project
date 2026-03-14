@@ -3,10 +3,16 @@ import axios from 'axios';
 import L from 'leaflet';
 import tokml from 'tokml';
 
-export default function BuscaCAR({ map, drawnItemsRef, onClose, visivel = true }) {
+export default function BuscaCAR({
+  map,
+  drawnItemsRef,
+  onClose,
+  visivel = true,
+  setCarLayerBusca,
+}) {
   const [codigoCAR, setCodigoCAR] = useState('');
   const [buscando, setBuscando] = useState(false);
-  const carLayerRef = useRef(null);  // Referência persistente do layer
+  const carLayerRef = useRef(null);
 
   const buscarCAR = async () => {
     if (!codigoCAR) return;
@@ -32,31 +38,34 @@ export default function BuscaCAR({ map, drawnItemsRef, onClose, visivel = true }
     try {
       const { data } = await axios.get(url);
 
-      if (data.features.length === 0) {
+      if (!data.features || data.features.length === 0) {
         alert('Imóvel não encontrado.');
         return;
       }
 
-      // Remove anterior, se existir
       if (carLayerRef.current) {
         drawnItemsRef.current.removeLayer(carLayerRef.current);
       }
 
       const layer = new L.GeoJSON(data, {
         style: {
-          color: 'purple',
+          color: '#c38f5d',
           weight: 3,
-          fillOpacity: 0
+          fillOpacity: 0,
         },
         onEachFeature: (feature, layer) => {
           const props = feature.properties;
           layer.bindPopup(`<b>${props.inscricaocar}</b><br>${props.municipio}`);
-        }
+        },
       });
 
       layer.addTo(drawnItemsRef.current);
       map.fitBounds(layer.getBounds());
       carLayerRef.current = layer;
+
+      if (setCarLayerBusca) {
+        setCarLayerBusca(layer); // ✅ comunica ao App ou DrawTools
+      }
 
     } catch (error) {
       console.error('Erro na busca WFS:', error);
@@ -70,6 +79,9 @@ export default function BuscaCAR({ map, drawnItemsRef, onClose, visivel = true }
     if (carLayerRef.current) {
       drawnItemsRef.current.removeLayer(carLayerRef.current);
       carLayerRef.current = null;
+    }
+    if (setCarLayerBusca) {
+      setCarLayerBusca(null);
     }
   };
 
@@ -93,7 +105,7 @@ export default function BuscaCAR({ map, drawnItemsRef, onClose, visivel = true }
     <div className="painel-busca-car" style={{ display: visivel ? 'block' : 'none' }}>
       <div className="topo">
         <strong>Buscar CAR</strong>
-        <button className="fechar" onClick={onClose}>✖</button>
+        <button className="fechar" onClick={onClose} type="button">x</button>
       </div>
 
       <input
@@ -102,13 +114,13 @@ export default function BuscaCAR({ map, drawnItemsRef, onClose, visivel = true }
         value={codigoCAR}
         onChange={(e) => setCodigoCAR(e.target.value)}
       />
-      <button onClick={buscarCAR} disabled={buscando}>
+      <button onClick={buscarCAR} disabled={buscando} type="button">
         {buscando ? 'Buscando...' : 'Buscar'}
       </button>
-      <button onClick={limparCAR} disabled={!carLayerRef.current}>
+      <button onClick={limparCAR} disabled={!carLayerRef.current} type="button">
         Limpar
       </button>
-      <button onClick={exportarCAR} disabled={!carLayerRef.current}>
+      <button onClick={exportarCAR} disabled={!carLayerRef.current} type="button">
         Exportar
       </button>
     </div>

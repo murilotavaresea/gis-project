@@ -3,10 +3,13 @@ import L from 'leaflet';
 import tokml from 'tokml';
 import * as turf from '@turf/turf';
 import 'leaflet-draw'; // importante para registrar os eventos
-import BotaoRecentrar from './BotaoRecentrar';
 import { useMap } from 'react-leaflet';
 import BuscaCAR from './BuscaCAR';
-import config from "../config";
+import GerarAreaBeneficiavel from './GerarAreaBeneficiavel';
+import VerificarSobreposicao from './VerificarSobreposicao';
+import MapaRelatorio from './MapaRelatorio';
+
+
 
 
 
@@ -14,7 +17,7 @@ import config from "../config";
 function MeasurementPanel({ tipo, unidade, setUnidade, resultado, onReset, onClose }) {
   return (
     <div id="measurement-panel">
-      <button className="close-button" onClick={onClose}>✖</button>
+      <button className="close-button" onClick={onClose} type="button">x</button>
       <h3>{tipo === 'polygon' ? 'MEDIR ÁREA' : 'MEDIR DISTÂNCIA'}</h3>
       <div className="unit-selector">
         <label>Unidade:</label>
@@ -45,17 +48,17 @@ function MeasurementPanel({ tipo, unidade, setUnidade, resultado, onReset, onClo
 
 
 export default function DrawTools({
-  mapRef,
   drawnItemsRef,
   fileInputRef,
   fileInputRefCAR,
-  resetMapView,
   camadasImportadas,
   setCamadasImportadas,
   setDesenhos,
   areaDoImovelLayer,
   setAreaDoImovelLayer,
-  camadas
+  camadas,
+  carLayerBusca,
+  setCarLayerBusca
 }) {
 
   const [showDrawSubmenu, setShowDrawSubmenu] = useState(false);
@@ -67,11 +70,16 @@ const [linhasMedicao, setLinhasMedicao] = useState([]);
 const [medindo, setMedindo] = useState(false);
 const [medicaoDrawer, setMedicaoDrawer] = useState(null);
 const [mostrarBuscaCAR, setMostrarBuscaCAR] = useState(false);
+const [mapaRelatorioData, setMapaRelatorioData] = useState({
+  areaGeoJSON: null,
+  overlayLayers: [],
+});
 
 
 
 
-  const map = useMap(); // 🎯 obtém o objeto do mapa diretamente
+
+  const map = useMap();
   const toggleMeasurementPanel = () => {
     setShowMeasureSubmenu(prev => {
       const novoEstado = !prev;
@@ -96,7 +104,7 @@ const [mostrarBuscaCAR, setMostrarBuscaCAR] = useState(false);
   console.log("🟢 Iniciando desenho:", tipo);
 
 
-    const options = { shapeOptions: { color: '#3388ff' } };
+    const options = { shapeOptions: { color: '#6f89a5' } };
     let drawer;
     switch (tipo) {
       case 'polygon': drawer = new L.Draw.Polygon(map, options); break;
@@ -136,7 +144,7 @@ const [mostrarBuscaCAR, setMostrarBuscaCAR] = useState(false);
   setLinhasMedicao([]);
   setMedindo(true);
 
-  const shapeOptions = { color: 'orange' };
+  const shapeOptions = { color: '#c38f5d' };
 const novoDrawer = tipo === 'polygon'
   ? new L.Draw.Polygon(map, { shapeOptions })
   : new L.Draw.Polyline(map, { shapeOptions });
@@ -264,176 +272,27 @@ setMedicaoDrawer(novoDrawer);
 
 
 
-  const verificarSobreposicao = () => {
-    if (!areaDoImovelLayer) {
-      alert("Área do imóvel não encontrada.");
-      return;
-    }
-
-    const areaGeoJSON = areaDoImovelLayer.toGeoJSON();
-    const areaFeatures = areaGeoJSON.type === 'FeatureCollection'
-      ? areaGeoJSON.features
-      : [areaGeoJSON];
-
-    const areaFeatureCollection = turf.featureCollection(areaFeatures);
-
-    const resultados = [];
-
-    camadas.forEach(camada => {
-      const nomeCamada = camada.nome.split(':').pop().toUpperCase();
-      if (nomeCamada === 'ESTADOS') return;
-
-      let temIntersecao = false;
-
-      if (camada.data) {
-        camada.data.features.forEach(feature => {
-          try {
-            const intersecta = turf.intersect(areaFeatureCollection, feature);
-            if (intersecta) temIntersecao = true;
-          } catch (e) {
-            console.warn(`Erro ao verificar ${camada.nome}:`, e);
-          }
-        });
-      }
-
-      resultados.push({
-        camada: camada.nome,
-        sobreposicao: temIntersecao
-      });
-    });
-
-    let texto = "🧾 Resultado da verificação:\n\n";
-    resultados.forEach(r => {
-      texto += `• ${r.camada}: ${r.sobreposicao ? '❌ Sobreposição detectada' : '✅ Sem sobreposição'}\n`;
-    });
-
-    alert(texto);
-  };
-
-const gerarAreaBeneficiavel = async () => {
-  if (!map || !drawnItemsRef.current) {
-    console.warn("⚠️ Referências do mapa ou itens desenhados não estão disponíveis.");
-    return;
-  }
-
-  console.log("✅ Iniciando geração da Área Beneficiável...");
-
-  const obterCamada = (nomeParcial) =>
-    camadasImportadas.find(c => c.nome.includes(nomeParcial));
-
-  const camadaImovel = obterCamada("Area_do_Imovel");
-  const camadaRL = obterCamada("Reserva_Legal");
-  const camadaAPP = obterCamada("Area_de_Preservacao_Permanente");
-  const camadaRemanescente = obterCamada("Remanescente");
-  const camadaServidao = obterCamada("Servidao_Administrativa");
-  const camadaAPF = obterCamada("APF");
-
-  if (!camadaImovel) {
-    alert("❌ Área do imóvel não encontrada.");
-    return;
-  }
-
-  const geoImovel = camadaImovel.layer.toGeoJSON();
-
-  // 🔧 Coleta camadas impeditivas válidas
-  const impeditivas = [];
-  [camadaRL, camadaAPP, camadaRemanescente, camadaServidao].forEach(camada => {
-    if (camada) {
-      const geo = camada.layer.toGeoJSON();
-      if (geo?.features?.length || geo?.geometry) {
-        impeditivas.push(geo);
-      }
-    }
-  });
-
-  try {
-    // 🔁 Envia ao backend
-    const response = await fetch(`${config.API_BASE_URL}/gerar-area-beneficiavel`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        imovel: geoImovel.features?.[0] || geoImovel,
-        impeditivas: impeditivas,
-        apf: camadaAPF?.layer?.toGeoJSON(), // opcional
-        estado: "MT" // ⚠️ ou dinamize com base no imóvel
-      })
-    });
-
-    const resultado = await response.json();
-
-    if (resultado.erro) {
-      alert("Erro ao calcular diferença: " + resultado.erro);
-      return;
-    }
-
-    let geoFinal = resultado;
-
-    // ✅ (Opcional) Interseção extra com APF (caso não tratada no backend)
-    const estaEmMT = camadaImovel?.uf === "MT" || camadaImovel?.nome?.includes("_MT");
-    if (estaEmMT && camadaAPF) {
-      const apfGeo = camadaAPF.layer.toGeoJSON().features?.[0] || camadaAPF.layer.toGeoJSON();
-      const intersectado = turf.intersect(geoFinal, apfGeo);
-      if (intersectado) {
-        geoFinal = intersectado;
-        console.log("📍 Interseção com APF realizada (MT).");
-      } else {
-        console.warn("⚠️ Interseção com APF retornou nulo.");
-      }
-    }
-
-    // 🗺️ Adiciona no mapa
-    const novaLayer = new L.GeoJSON(geoFinal, {
-      style: {
-        color: "#27ae60",
-        weight: 1,
-        fillOpacity: 0.5
-      }
-    });
-
-    novaLayer.addTo(drawnItemsRef.current);
-    map.fitBounds(novaLayer.getBounds());
-
-    setCamadasImportadas(prev => [
-      ...prev,
-      {
-        nome: "Área Beneficiável",
-        layer: novaLayer,
-        visivel: true
-      }
-    ]);
-
-    console.log("✅ Área Beneficiável adicionada com sucesso.");
-  } catch (e) {
-    console.error("❌ Erro ao gerar área beneficiável:", e);
-    alert("Erro ao gerar área beneficiável.");
-  }
-};
-
-
-
-
-
   return (
     <>
       <div id="tool-sidebar">
         {/* DESENHAR */}
         <div style={{ position: 'relative' }}>
-          <button onClick={() => setShowDrawSubmenu(p => !p)} title="Desenhar">
+          <button onClick={() => setShowDrawSubmenu(p => !p)} title="Desenhar" type="button">
             <img src="/icons/desenho.png" alt="Desenhar" style={{ width: '24px', height: '24px' }} />
           </button>
           {showDrawSubmenu && (
             <div className="tool-submenu">
-              <button onClick={() => startDraw('polygon')} title="Polígono">
+              <button onClick={() => startDraw('polygon')} title="Poligono" type="button">
                 <img src="/icons/poligono.png" alt="Polígono" style={{ width: '24px', height: '24px' }} />
               </button>
-              <button onClick={() => startDraw('rectangle')} title="Retângulo">◼️</button>
-              <button onClick={() => startDraw('polyline')} title="Linha">
+              <button onClick={() => startDraw('rectangle')} title="Retangulo" type="button">[]</button>
+              <button onClick={() => startDraw('polyline')} title="Linha" type="button">
                 <img src="/icons/linha.png" alt="Linha" style={{ width: '24px', height: '24px' }} />
               </button>
-              <button onClick={() => startDraw('marker')} title="Ponto">
+              <button onClick={() => startDraw('marker')} title="Ponto" type="button">
                 <img src="/icons/ponto.png" alt="Ponto" style={{ width: '24px', height: '24px' }} />
               </button>
-              <button onClick={exportarKML} title="Exportar">
+              <button onClick={exportarKML} title="Exportar" type="button">
                 <img src="/icons/salvar.png" alt="Exportar" style={{ width: '24px', height: '24px' }} />
               </button>
             </div>
@@ -442,17 +301,17 @@ const gerarAreaBeneficiavel = async () => {
 
         {/* MEDIR */}
         <div style={{ position: 'relative' }}>
-          <button onClick={toggleMeasurementPanel} title="Medir">
+          <button onClick={toggleMeasurementPanel} title="Medir" type="button">
             <img src="/icons/medir.png" alt="Medir" style={{ width: '24px', height: '24px' }} />
           </button>
           {showMeasureSubmenu && (
   <div className="tool-submenu">
     {!medindo && (
       <>
-        <button onClick={() => startMeasurement('polygon')} title="Área">
+        <button onClick={() => startMeasurement('polygon')} title="Area" type="button">
           <img src="/icons/Area.png" alt="Área" style={{ width: '24px', height: '24px' }} />
         </button>
-        <button onClick={() => startMeasurement('polyline')} title="Distância">
+        <button onClick={() => startMeasurement('polyline')} title="Distancia" type="button">
           <img src="/icons/regua.png" alt="Distância" style={{ width: '24px', height: '24px' }} />
         </button>
       </>
@@ -466,6 +325,7 @@ const gerarAreaBeneficiavel = async () => {
     setMedicaoDrawer(null);
   }}
   title="Parar"
+  type="button"
 >
 
         <img src="/icons/stop.png" alt="Parar" style={{ width: '24px', height: '24px' }} />
@@ -477,26 +337,38 @@ const gerarAreaBeneficiavel = async () => {
         </div>
 
         {/* IMPORTAR */}
-        <button onClick={() => fileInputRef.current.click()} title="Importar">
+        <button onClick={() => fileInputRef.current.click()} title="Importar" type="button">
           <img src="/icons/folder.png" alt="Importar" style={{ width: '24px', height: '24px' }} />
         </button>
-        <button onClick={() => fileInputRefCAR.current.click()} title="Importar CAR">🗂️</button>
+        <button onClick={() => fileInputRefCAR.current.click()} title="Importar CAR" type="button">
+          <img src="/icons/importcar.png" alt="Importar CAR" style={{ width: '24px', height: '24px' }} />
+        </button>
 
-        {/* RECENTRALIZAR */}
-        <BotaoRecentrar onClick={resetMapView} />
-
-        <button onClick={() => setMostrarBuscaCAR((prev) => !prev)} title="Buscar CAR">
+        <button onClick={() => setMostrarBuscaCAR((prev) => !prev)} title="Buscar CAR" type="button">
   <img src="/icons/buscar-car.png" alt="Buscar CAR" style={{ width: '24px', height: '24px' }} />
 </button>
 
 {/* GERAR ÁREA BENEFICIÁVEL */}
-<button onClick={gerarAreaBeneficiavel} title="Gerar Área Beneficiável">
-  🌱
-</button>
+{/* GERAR ÁREA BENEFICIÁVEL */}
+<GerarAreaBeneficiavel
+  map={map}
+  drawnItemsRef={drawnItemsRef}
+  camadasImportadas={camadasImportadas}
+  setCamadasImportadas={setCamadasImportadas}
+/>
+
 
 
         {/* VERIFICAR SOBREPOSIÇÃO */}
-        <button onClick={verificarSobreposicao} title="Checar Sobreposição">📋</button>
+        <VerificarSobreposicao
+  carLayerBusca={carLayerBusca}
+  camadas={camadas}
+  onAtualizarMapaRelatorio={setMapaRelatorioData}
+/>
+
+
+
+
       </div>
 
       {/* PAINEL DE MEDIÇÃO */}
@@ -520,7 +392,9 @@ const gerarAreaBeneficiavel = async () => {
   drawnItemsRef={drawnItemsRef}
   onClose={() => setMostrarBuscaCAR(false)}
   visivel={mostrarBuscaCAR}
+  setCarLayerBusca={setCarLayerBusca}
 />
+
 
 
 
@@ -537,6 +411,13 @@ const gerarAreaBeneficiavel = async () => {
     </ul>
     <div><strong>{resultado}</strong></div>
   </div>
+)}
+
+{carLayerBusca && (
+  <MapaRelatorio
+    geojson={mapaRelatorioData.areaGeoJSON || carLayerBusca.toGeoJSON()}
+    overlayLayers={mapaRelatorioData.overlayLayers}
+  />
 )}
 
 
