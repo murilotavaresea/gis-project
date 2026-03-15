@@ -10,14 +10,16 @@ forcar_tudo = False  # ⬅️ Coloque True para reimportar todas as camadas
 pasta_shapefiles = r"C:\Users\Murilo Tavares\Desktop\DADOS AMBIENTAIS"
 controle_path = "controle_importacao.json"
 
-# config do banco
+# config do banco na AWS RDS
 db_config = {
   "usuario": "postgres",
-  "senha": "1234",
+  "senha": "687456",
   "host": "localhost",
-  "porta": "5433",
-  "banco": "webgis_local"
+  "porta": "5432",
+  "banco": "webgis"
 }
+
+
 engine = create_engine(
   f"postgresql://{db_config['usuario']}:{db_config['senha']}@"
   f"{db_config['host']}:{db_config['porta']}/{db_config['banco']}"
