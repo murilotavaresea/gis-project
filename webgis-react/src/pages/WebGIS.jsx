@@ -47,7 +47,7 @@ const GEOSERVER_WFS_URL = config.GEOSERVER_BASE_URL;
 const MAP_CENTER = [-14.8, -51.5];
 const MAP_ZOOM = 5;
 const EXTERNAL_LAYERS_URL = config.EXTERNAL_LAYERS_URL;
-const EXTERNAL_LAYERS_TIMEOUT_MS = 12000;
+const EXTERNAL_LAYERS_TIMEOUT_MS = 65000;
 
 function isCamadaInternaFPB(nome = '') {
   return nome.split(':').pop().toUpperCase().startsWith('FPB');
