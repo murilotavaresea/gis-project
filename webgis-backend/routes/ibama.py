@@ -67,6 +67,15 @@ def fetch_wfs_as_gml(base, params):
     return requests.get(base, params=fallback_params, timeout=60)
 
 
+def proxy_external_request(base, params, timeout=60):
+    response = requests.get(base, params=params, timeout=timeout)
+    return Response(
+        response.content,
+        status=response.status_code,
+        content_type=response.headers.get("Content-Type", "application/octet-stream"),
+    )
+
+
 # Proxy generico para WFS externo (IBAMA, INPE, INCRA, etc.)
 @ibama_bp.route("/proxy/wfs")
 def proxy_wfs():
@@ -109,5 +118,21 @@ def proxy_wfs():
             content_type=response.headers.get("Content-Type", "application/json"),
         )
 
+    except Exception as error:
+        return {"erro": str(error)}, 500
+
+
+@ibama_bp.route("/proxy/wms")
+def proxy_wms():
+    base = request.args.get("base", "").strip()
+
+    if not base:
+        return {"erro": "Parametro 'base' e obrigatorio"}, 400
+
+    params = request.args.to_dict()
+    params.pop("base", None)
+
+    try:
+        return proxy_external_request(base, params)
     except Exception as error:
         return {"erro": str(error)}, 500

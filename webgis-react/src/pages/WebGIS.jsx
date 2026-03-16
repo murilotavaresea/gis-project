@@ -48,6 +48,39 @@ const MAP_CENTER = [-14.8, -51.5];
 const MAP_ZOOM = 5;
 const EXTERNAL_LAYERS_URL = config.EXTERNAL_LAYERS_URL;
 const EXTERNAL_LAYERS_TIMEOUT_MS = 65000;
+const EXTERNAL_LAYERS_RETRY_DELAY_MS = 1800;
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function fetchJsonWithRetry(url, options = {}, retries = 1) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch(url, options);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+
+      if (attempt === retries) {
+        break;
+      }
+
+      await delay(EXTERNAL_LAYERS_RETRY_DELAY_MS);
+    }
+  }
+
+  throw lastError;
+}
 
 function isCamadaInternaFPB(nome = '') {
   return nome.split(':').pop().toUpperCase().startsWith('FPB');
@@ -249,8 +282,11 @@ export default function WebGIS() {
         const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_LAYERS_TIMEOUT_MS);
 
         try {
-          const resExternas = await fetch(EXTERNAL_LAYERS_URL, { signal: controller.signal });
-          const externas = await resExternas.json();
+          const externas = await fetchJsonWithRetry(
+            EXTERNAL_LAYERS_URL,
+            { signal: controller.signal },
+            1
+          );
           const camadasExternas = montarCamadasExternas(externas);
 
           setCamadas((old) => anexarCamadasExternas(old, camadasExternas));
@@ -296,8 +332,11 @@ export default function WebGIS() {
         const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_LAYERS_TIMEOUT_MS);
 
         try {
-          const resExternas = await fetch(EXTERNAL_LAYERS_URL, { signal: controller.signal });
-          const externas = await resExternas.json();
+          const externas = await fetchJsonWithRetry(
+            EXTERNAL_LAYERS_URL,
+            { signal: controller.signal },
+            1
+          );
           const camadasExternas = montarCamadasExternas(externas);
 
           setCamadas((old) => anexarCamadasExternas(old, camadasExternas));
@@ -698,7 +737,7 @@ export default function WebGIS() {
 
             <TileLayer
               attribution="Google Satellite"
-              url="http://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
+              url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
             />
 
           </LayersControl.BaseLayer>
@@ -712,6 +751,7 @@ export default function WebGIS() {
             return (
               <ExternalWmsLayer
                 key={c.nome}
+                baseUrl={`${config.API_BASE_URL}/proxy/wms`}
                 url={c.wmsBaseUrl}
                 layers={c.nome}
                 visivel={c.visivel}

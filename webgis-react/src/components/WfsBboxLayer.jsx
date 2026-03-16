@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import { filtrarFeatureCollection } from "../utils/filtrarFeatureCollection";
 
+const RETRY_DELAY_MS = 1800;
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 export default function WfsBboxLayer({
   baseUrl,
   wfsBaseUrl,
@@ -20,6 +28,32 @@ export default function WfsBboxLayer({
   const [renderVersion, setRenderVersion] = useState(0);
   const abortRef = useRef(null);
   const lastBboxRef = useRef("");
+
+  async function fetchWithRetry(url, options, retries = 1) {
+    let lastResponseText = "";
+
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      const response = await fetch(url, options);
+      const text = await response.text();
+      lastResponseText = text;
+
+      if (response.ok) {
+        return { response, text };
+      }
+
+      const isRetriable = response.status === 502 || response.status === 503 || response.status === 504;
+      if (!isRetriable || attempt === retries) {
+        return { response, text };
+      }
+
+      await delay(RETRY_DELAY_MS);
+    }
+
+    return {
+      response: { ok: false, status: 502 },
+      text: lastResponseText,
+    };
+  }
 
   async function fetchByBbox({ force = false } = {}) {
     if (!visivel) return;
@@ -70,8 +104,11 @@ export default function WfsBboxLayer({
     const url = `${baseUrl}?${query.toString()}`;
 
     try {
-      const res = await fetch(url, { signal: abortRef.current.signal });
-      const text = await res.text();
+      const { response: res, text } = await fetchWithRetry(
+        url,
+        { signal: abortRef.current.signal },
+        1
+      );
 
       if (!res.ok) {
         console.warn(`WFS retornou status ${res.status} para ${typeName}.`, text.slice(0, 200));

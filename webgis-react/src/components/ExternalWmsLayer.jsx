@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { WMSTileLayer, useMap } from "react-leaflet";
 
 export default function ExternalWmsLayer({
+  baseUrl,
   url,
   layers,
   visivel,
@@ -10,6 +11,8 @@ export default function ExternalWmsLayer({
 }) {
   const map = useMap();
   const [zoomAtual, setZoomAtual] = useState(map.getZoom());
+  const useProxy = Boolean(baseUrl && /^http:\/\//i.test(url || ""));
+  const tileUrl = useProxy ? `${baseUrl}?base=${encodeURIComponent(url)}` : url;
   const wmsParams = useMemo(
     () => ({
       version: "1.1.1",
@@ -33,5 +36,5 @@ export default function ExternalWmsLayer({
     return null;
   }
 
-  return <WMSTileLayer url={url} layers={layers} {...wmsParams} />;
+  return <WMSTileLayer url={tileUrl} layers={layers} {...wmsParams} />;
 }
