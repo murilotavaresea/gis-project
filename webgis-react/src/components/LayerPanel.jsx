@@ -54,7 +54,7 @@ export default function LayerPanel({
       <div className="layer-header" onClick={() => setCollapsed(!collapsed)}>
         <div className="layer-headerTitleGroup">
           <span className="layer-headerIcon">
-            <img src="/icons/camada.png" alt="Camadas" />
+            <img src="/icons/layers.svg" alt="Camadas" />
           </span>
           <div>
             <div className="layer-headerTitle">Camadas ativas</div>

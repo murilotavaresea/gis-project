@@ -143,7 +143,7 @@ export default function WebGIS() {
 
   const [carLayerBusca, setCarLayerBusca] = useState(null);
   const sidebarSections = [
-    { id: "camadas", label: "Catalogo", icon: "/icons/camada.png" },
+    { id: "camadas", label: "Catalogo", icon: "/icons/layers.svg" },
     { id: "fontes", label: "Fontes", shortLabel: "i" },
     { id: "ajuda", label: "Ajuda", shortLabel: "?" },
   ];
@@ -374,6 +374,18 @@ export default function WebGIS() {
     if (!camada?.layer) return;
 
     exportarLayerComoKml(camada.layer, camada.nome || 'camada_importada');
+
+  };
+
+
+
+  const exportarDesenhoIndividual = (index) => {
+
+    const desenho = desenhos[index];
+
+    if (!desenho?.layer) return;
+
+    exportarLayerComoKml(desenho.layer, desenho.tipo || `desenho_${index + 1}`);
 
   };
 
@@ -616,6 +628,7 @@ export default function WebGIS() {
             removerTodasCamadasCAR={removerTodasCamadasCAR}
             formatarNomeCAR={formatarNomeCAR}
             desenhos={desenhos}
+            exportarDesenhoIndividual={exportarDesenhoIndividual}
             editarDesenhoIndividual={editarDesenhoIndividual}
             finalizarEdicaoIndividual={finalizarEdicaoIndividual}
             removerDesenhoIndividual={removerDesenhoIndividual}
@@ -651,7 +664,7 @@ export default function WebGIS() {
 
         <LayersControl position="topright">
 
-          <LayersControl.BaseLayer checked name="OpenStreetMap">
+          <LayersControl.BaseLayer name="OpenStreetMap">
 
             <TileLayer
               attribution="&copy; OpenStreetMap contributors"
@@ -661,7 +674,7 @@ export default function WebGIS() {
           </LayersControl.BaseLayer>
 
 
-          <LayersControl.BaseLayer name="Google Satellite">
+          <LayersControl.BaseLayer checked name="Google Satellite">
 
             <TileLayer
               attribution="Google Satellite"

@@ -114,19 +114,19 @@
 
 #toggle-sidebar {
   position: absolute;
-  top: 18px;
-  left: calc(var(--sidebar-w) + 10px);
-  width: 42px;
-  height: 42px;
+  top: 16px;
+  left: calc(var(--sidebar-w) + 12px);
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--color-border-soft);
-  border-radius: 14px;
+  border-radius: 12px;
   background: rgba(248, 250, 245, 0.95);
   color: var(--text-strong);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
   cursor: pointer;
   backdrop-filter: blur(18px);
-  box-shadow: 0 14px 28px rgba(86, 78, 84, 0.14);
+  box-shadow: 0 10px 22px rgba(86, 78, 84, 0.14);
   z-index: 1100;
   transition: left 0.28s ease, background 0.2s ease, transform 0.2s ease;
 }
@@ -137,7 +137,7 @@
 }
 
 .sidebar-hidden #toggle-sidebar {
-  left: 16px;
+  left: 12px;
 }
 
 .sb-shell {
@@ -1405,25 +1405,25 @@ footer {
 /* Leaflet */
 .leaflet-control-zoom {
   position: absolute !important;
-  top: 158px;
-  left: calc(var(--sidebar-w) + 10px);
+  top: 154px;
+  left: calc(var(--sidebar-w) + 12px);
   z-index: 1101 !important;
   transition: left 0.28s ease;
 }
 
 .sidebar-hidden .leaflet-control-zoom {
-  left: 18px !important;
+  left: 12px !important;
 }
 
 .leaflet-control-zoom a {
-  width: 40px !important;
-  height: 40px !important;
-  line-height: 38px !important;
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 32px !important;
   border: 1px solid var(--color-border-soft) !important;
-  border-radius: 13px !important;
+  border-radius: 12px !important;
   background: rgba(251, 253, 250, 0.92) !important;
   color: var(--text-strong) !important;
-  box-shadow: 0 10px 20px rgba(86, 78, 84, 0.12);
+  box-shadow: 0 8px 18px rgba(86, 78, 84, 0.12);
 }
 
 .leaflet-bar a:hover {
@@ -1475,7 +1475,7 @@ footer {
   .leaflet-control-zoom {
     top: 18px;
     left: auto !important;
-    right: 18px;
+    right: 12px;
   }
 
   #layer-control {
@@ -1515,6 +1515,15 @@ footer {
   .sb-railBtn {
     width: 34px;
     height: 34px;
+  }
+
+  #toggle-sidebar {
+    top: 12px;
+    left: calc(var(--sidebar-w) + 8px);
+  }
+
+  .sidebar-hidden #toggle-sidebar {
+    left: 8px;
   }
 
   #layer-control {

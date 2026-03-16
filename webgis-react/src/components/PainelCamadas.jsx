@@ -89,6 +89,7 @@ export default function PainelCamadas({
   removerTodasCamadasCAR,
   formatarNomeCAR,
   desenhos,
+  exportarDesenhoIndividual,
   editarDesenhoIndividual,
   finalizarEdicaoIndividual,
   removerDesenhoIndividual,
@@ -398,6 +399,13 @@ export default function PainelCamadas({
                     OK
                   </button>
                 )}
+
+                <ActionIconButton
+                  title="Exportar desenho em KML"
+                  onClick={() => exportarDesenhoIndividual(index)}
+                  iconSrc="/icons/download.svg"
+                  size={16}
+                />
 
                 <ActionIconButton
                   title="Editar desenho"
