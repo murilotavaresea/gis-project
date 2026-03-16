@@ -1406,7 +1406,7 @@ footer {
 .leaflet-control-zoom {
   position: absolute !important;
   top: 154px;
-  left: calc(var(--sidebar-w) + 12px);
+  left: calc(var(--sidebar-w) + 0.5px);
   z-index: 1101 !important;
   transition: left 0.28s ease;
 }

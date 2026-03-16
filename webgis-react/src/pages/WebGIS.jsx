@@ -212,6 +212,9 @@ export default function WebGIS() {
     const fetchCamadas = async () => {
 
       try {
+        if (!GEOSERVER_WFS_URL) {
+          throw new Error("GeoServer nao configurado");
+        }
 
         const res = await fetch(`${GEOSERVER_WFS_URL}?service=WFS&request=GetCapabilities`);
         const text = await res.text();
@@ -284,8 +287,25 @@ export default function WebGIS() {
         }
 
       } catch (err) {
+        console.warn("Nao foi possivel carregar as camadas internas do GeoServer:", err);
 
-        console.error("Erro ao carregar camadas:", err);
+        const camadasExternasIniciais = montarCamadasExternas(camadasExternasFallback);
+        setCamadas(camadasExternasIniciais);
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_LAYERS_TIMEOUT_MS);
+
+        try {
+          const resExternas = await fetch(EXTERNAL_LAYERS_URL, { signal: controller.signal });
+          const externas = await resExternas.json();
+          const camadasExternas = montarCamadasExternas(externas);
+
+          setCamadas((old) => anexarCamadasExternas(old, camadasExternas));
+        } catch (errExternas) {
+          console.warn("Nao foi possivel carregar as camadas externas no momento:", errExternas);
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
       }
 

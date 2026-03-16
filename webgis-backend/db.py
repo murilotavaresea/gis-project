@@ -11,17 +11,40 @@ def _normalize_database_url(database_url):
     return database_url
 
 
+def _build_database_url_from_parts():
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    host = os.getenv("DB_HOST")
+    port = os.getenv("DB_PORT", "5432")
+    database = os.getenv("DB_NAME")
+
+    missing = [
+        env_name
+        for env_name, env_value in {
+            "DB_USER": user,
+            "DB_PASSWORD": password,
+            "DB_HOST": host,
+            "DB_NAME": database,
+        }.items()
+        if not env_value
+    ]
+
+    if missing:
+        missing_list = ", ".join(missing)
+        raise RuntimeError(
+            "Configuracao de banco incompleta. Defina DATABASE_URL "
+            f"ou as variaveis {missing_list}."
+        )
+
+    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+
+
 def get_database_url():
     database_url = os.getenv("DATABASE_URL")
     if database_url:
         return _normalize_database_url(database_url)
 
-    user = os.getenv("DB_USER", "postgres")
-    password = os.getenv("DB_PASSWORD", "687456")
-    host = os.getenv("DB_HOST", "localhost")
-    port = os.getenv("DB_PORT", "5432")
-    database = os.getenv("DB_NAME", "webgis")
-    return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+    return _build_database_url_from_parts()
 
 
 def get_db_connection():

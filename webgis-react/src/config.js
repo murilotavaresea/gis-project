@@ -1,4 +1,8 @@
 function normalizeBaseUrl(url) {
+  if (!url) {
+    return "";
+  }
+
   return url.replace(/\/+$/, "");
 }
 
@@ -7,7 +11,7 @@ const API_BASE_URL = normalizeBaseUrl(
 );
 
 const GEOSERVER_BASE_URL = normalizeBaseUrl(
-  process.env.REACT_APP_GEOSERVER_BASE_URL || "http://localhost:8080/geoserver/webgis/ows"
+  process.env.REACT_APP_GEOSERVER_BASE_URL || ""
 );
 
 const config = {
