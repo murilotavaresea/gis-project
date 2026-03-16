@@ -3,9 +3,10 @@ import * as turf from "@turf/turf";
 import gerarRelatorioPDF from "./gerarRelatorioPDF";
 import { useMap } from "react-leaflet";
 import { filtrarFeatureCollection } from "../utils/filtrarFeatureCollection";
+import config from "../config";
 
-const GEOSERVER_BASE = "http://localhost:8080/geoserver/webgis/ows";
-const PROXY_WFS_BASE = "http://localhost:5000/proxy/wfs";
+const GEOSERVER_BASE = config.GEOSERVER_BASE_URL;
+const PROXY_WFS_BASE = config.PROXY_WFS_BASE_URL;
 
 function formatarNomeCamada(camada) {
   if (camada?.titulo) {
@@ -118,6 +119,7 @@ export default function VerificarSobreposicao({
   onAtualizarMapaRelatorio,
 }) {
   const map = useMap();
+  const iconStyle = { width: "22px", height: "22px" };
 
   const verificar = async () => {
     if (!carLayerBusca || !carLayerBusca.toGeoJSON) {
@@ -227,7 +229,7 @@ export default function VerificarSobreposicao({
 
   return (
     <button onClick={verificar} title="Verificar sobreposicao com o CAR buscado">
-      {"\uD83D\uDCCB"}
+      <img src="/icons/clipboard-minus.svg" alt="Verificar sobreposição" style={iconStyle} />
     </button>
   );
 }

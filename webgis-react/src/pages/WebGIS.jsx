@@ -24,6 +24,8 @@ import {
 
 import ImportadorCAR from '../components/ImportadorCAR';
 import PainelCamadas from '../components/PainelCamadas';
+import PainelFontesCamadas from '../components/PainelFontesCamadas';
+import PainelAjuda from '../components/PainelAjuda';
 
 import { getEstiloCamada } from '../utils/estiloCamadas';
 import formatarPopupAtributos from '../utils/formatarPopupAtributos';
@@ -36,13 +38,15 @@ import WfsBboxLayer from "../components/WfsBboxLayer";
 import ExternalWmsLayer from "../components/ExternalWmsLayer";
 import ArcgisFeatureLayer from "../components/ArcgisFeatureLayer";
 import camadasExternasFallback from "../config/camadasExternasFallback";
+import config from "../config";
+import exportarLayerComoKml from "../utils/exportarLayerComoKml";
 
 window.L = L;
 
-const GEOSERVER_WFS_URL = 'http://localhost:8080/geoserver/webgis/ows';
+const GEOSERVER_WFS_URL = config.GEOSERVER_BASE_URL;
 const MAP_CENTER = [-14.8, -51.5];
 const MAP_ZOOM = 5;
-const EXTERNAL_LAYERS_URL = 'http://localhost:5000/camadas_externas';
+const EXTERNAL_LAYERS_URL = config.EXTERNAL_LAYERS_URL;
 const EXTERNAL_LAYERS_TIMEOUT_MS = 12000;
 
 function isCamadaInternaFPB(nome = '') {
@@ -102,6 +106,7 @@ function formatarNomeCAR(nome) {
   const base = nome.replace('.shp', '').replace('.geojson', '');
 
   const mapeamento = {
+    'MARCADORES_Area_de_Preservacao_Permanente': 'Marcadores APP',
     'Area_do_Imovel': 'Área do Imóvel',
     'Area_de_Preservacao_Permanente': 'APP',
     'Reserva_Legal': 'Reserva Legal',
@@ -123,6 +128,7 @@ export default function WebGIS() {
   const fileInputRefCAR = useRef(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeSidebarView, setActiveSidebarView] = useState("camadas");
 
   const [camadas, setCamadas] = useState([]);
   const [camadasImportadas, setCamadasImportadas] = useState([]);
@@ -136,6 +142,16 @@ export default function WebGIS() {
   const [indiceEditando, setIndiceEditando] = useState(null);
 
   const [carLayerBusca, setCarLayerBusca] = useState(null);
+  const sidebarSections = [
+    { id: "camadas", label: "Catalogo", icon: "/icons/camada.png" },
+    { id: "fontes", label: "Fontes", shortLabel: "i" },
+    { id: "ajuda", label: "Ajuda", shortLabel: "?" },
+  ];
+  const sidebarFrameTitle = {
+    camadas: "Catalogo operacional",
+    fontes: "Fontes das camadas",
+    ajuda: "Ajuda da plataforma",
+  };
 
   const montarCamadasExternas = (externas) => externas.map(c => ({
     nome: montarNomeCamadaExterna(c),
@@ -351,6 +367,18 @@ export default function WebGIS() {
 
 
 
+  const exportarCamadaImportada = (index) => {
+
+    const camada = camadasImportadas[index];
+
+    if (!camada?.layer) return;
+
+    exportarLayerComoKml(camada.layer, camada.nome || 'camada_importada');
+
+  };
+
+
+
   const removerDesenhoIndividual = (index) => {
 
     const desenho = desenhos[index];
@@ -396,15 +424,33 @@ export default function WebGIS() {
 
 
   const alternarDesenhoParaExportacao = (index) => {
-
-    setDesenhos(prev => {
-
+    setDesenhos((prev) => {
       const atualizados = [...prev];
+      const desenho = atualizados[index];
 
-      atualizados[index].exportar = !atualizados[index].exportar;
+      if (!desenho?.layer) {
+        return prev;
+      }
+
+      const proximoVisivel = desenho.visivel === false;
+
+      if (proximoVisivel) {
+        drawnItemsRef.current.addLayer(desenho.layer);
+      } else {
+        desenho.layer.editing?.disable?.();
+        drawnItemsRef.current.removeLayer(desenho.layer);
+
+        if (indiceEditando === index) {
+          setIndiceEditando(null);
+        }
+      }
+
+      atualizados[index] = {
+        ...desenho,
+        visivel: proximoVisivel,
+      };
 
       return atualizados;
-
     });
 
   };
@@ -447,9 +493,12 @@ export default function WebGIS() {
 
   const handleImport = (e) => {
 
-    const file = e.target.files[0];
+    const input = e.target;
+    const file = input.files[0];
 
     if (!file) return;
+
+    input.value = '';
 
     const ext = file.name.split('.').pop().toLowerCase();
 
@@ -549,27 +598,38 @@ export default function WebGIS() {
       <Sidebar
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen((o) => !o)}
+        sections={sidebarSections}
+        activeSection={activeSidebarView}
+        onChangeSection={setActiveSidebarView}
         title="Atlas WebGIS"
         subtitle="Analise territorial e inteligencia espacial"
-        frameTitle="Catalogo operacional"
+        frameTitle={sidebarFrameTitle[activeSidebarView] || "Catalogo operacional"}
       >
+        {activeSidebarView === "camadas" && (
+          <PainelCamadas
+            camadas={camadas}
+            toggleLayer={toggleLayer}
+            camadasImportadas={camadasImportadas}
+            toggleCamadaImportada={toggleCamadaImportada}
+            removerCamadaImportada={removerCamadaImportada}
+            exportarCamadaImportada={exportarCamadaImportada}
+            removerTodasCamadasCAR={removerTodasCamadasCAR}
+            formatarNomeCAR={formatarNomeCAR}
+            desenhos={desenhos}
+            editarDesenhoIndividual={editarDesenhoIndividual}
+            finalizarEdicaoIndividual={finalizarEdicaoIndividual}
+            removerDesenhoIndividual={removerDesenhoIndividual}
+            alternarDesenhoParaExportacao={alternarDesenhoParaExportacao}
+            removerTodosDesenhos={removerTodosDesenhos}
+            indiceEditando={indiceEditando}
+          />
+        )}
 
-        <PainelCamadas
-          camadas={camadas}
-          toggleLayer={toggleLayer}
-          camadasImportadas={camadasImportadas}
-          toggleCamadaImportada={toggleCamadaImportada}
-          removerCamadaImportada={removerCamadaImportada}
-          removerTodasCamadasCAR={removerTodasCamadasCAR}
-          formatarNomeCAR={formatarNomeCAR}
-          desenhos={desenhos}
-          editarDesenhoIndividual={editarDesenhoIndividual}
-          finalizarEdicaoIndividual={finalizarEdicaoIndividual}
-          removerDesenhoIndividual={removerDesenhoIndividual}
-          alternarDesenhoParaExportacao={alternarDesenhoParaExportacao}
-          removerTodosDesenhos={removerTodosDesenhos}
-          indiceEditando={indiceEditando}
-        />
+        {activeSidebarView === "fontes" && (
+          <PainelFontesCamadas camadas={camadas} variant="inline" />
+        )}
+
+        {activeSidebarView === "ajuda" && <PainelAjuda />}
 
       </Sidebar>
 
@@ -632,7 +692,7 @@ export default function WebGIS() {
             return (
               <ArcgisFeatureLayer
                 key={c.nome}
-                baseUrl="http://localhost:5000/proxy/wfs"
+                baseUrl={config.PROXY_WFS_BASE_URL}
                 queryUrl={c.arcgisQueryUrl}
                 visivel={c.visivel}
                 minZoom={c.minZoom}
@@ -654,7 +714,7 @@ export default function WebGIS() {
 
               <WfsBboxLayer
                 key={c.nome}
-                baseUrl="http://localhost:5000/proxy/wfs"
+                baseUrl={config.PROXY_WFS_BASE_URL}
                 wfsBaseUrl={c.wfsBaseUrl}
                 typeName={c.typeName || c.nome}
                 visivel={c.visivel}

@@ -1,182 +1,310 @@
-import React from 'react';
-import L from 'leaflet';
-import * as turf from '@turf/turf';
+import React from "react";
+import L from "leaflet";
+import * as turf from "@turf/turf";
+import config from "../config";
+import { filtrarCoberturaSoloParaRemanescente } from "../utils/coberturaSoloCAR";
+
+const UFS_VALIDAS = new Set([
+  "AC",
+  "AL",
+  "AM",
+  "AP",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MG",
+  "MS",
+  "MT",
+  "PA",
+  "PB",
+  "PE",
+  "PI",
+  "PR",
+  "RJ",
+  "RN",
+  "RO",
+  "RR",
+  "RS",
+  "SC",
+  "SE",
+  "SP",
+  "TO",
+]);
+
+function obterFeaturePrincipal(layer) {
+  const geojson = layer?.toGeoJSON?.();
+  if (!geojson) {
+    return null;
+  }
+
+  if (geojson.type === "FeatureCollection") {
+    return geojson.features?.[0] || null;
+  }
+
+  return geojson.type === "Feature" ? geojson : null;
+}
+
+function obterColecaoGeoJSON(layer) {
+  const geojson = layer?.toGeoJSON?.();
+  if (!geojson) {
+    return null;
+  }
+
+  if (geojson.type === "FeatureCollection") {
+    return geojson;
+  }
+
+  if (geojson.type === "Feature") {
+    return {
+      type: "FeatureCollection",
+      features: [geojson],
+    };
+  }
+
+  return null;
+}
+
+function obterColecaoCoberturaSoloFiltrada(layer) {
+  const geojson = obterColecaoGeoJSON(layer);
+  if (!geojson) {
+    return null;
+  }
+
+  const filtrado = filtrarCoberturaSoloParaRemanescente(geojson);
+  return filtrado?.features?.length ? filtrado : null;
+}
+
+function extrairUfDoCAR(feature) {
+  const props = feature?.properties || {};
+  const candidatos = [
+    props.uf,
+    props.estado,
+    props.cod_imovel,
+    props.codImovel,
+    props.inscricao,
+    props.inscricaocar,
+    props.codigo,
+  ];
+
+  for (const valorBruto of candidatos) {
+    if (!valorBruto) {
+      continue;
+    }
+
+    const valor = String(valorBruto).trim().toUpperCase();
+
+    if (UFS_VALIDAS.has(valor)) {
+      return valor;
+    }
+
+    if (valor.includes("MATO GROSSO")) {
+      return "MT";
+    }
+
+    const matchPrefixo = valor.match(/^([A-Z]{2})(?=[-_:/\s])/);
+    if (matchPrefixo && UFS_VALIDAS.has(matchPrefixo[1])) {
+      return matchPrefixo[1];
+    }
+
+    const matchTexto = valor.match(/\b([A-Z]{2})\b/);
+    if (matchTexto && UFS_VALIDAS.has(matchTexto[1])) {
+      return matchTexto[1];
+    }
+
+    const prefixo = valor.slice(0, 2);
+    if (UFS_VALIDAS.has(prefixo)) {
+      return prefixo;
+    }
+  }
+
+  return null;
+}
+
+function obterConfigApf(camadas = []) {
+  return (
+    camadas.find((camada) => {
+      if (!camada?.externa) {
+        return false;
+      }
+
+      const identificadores = [
+        camada.analysisTypeName,
+        camada.typeName,
+        camada.titulo,
+        camada.nome,
+      ]
+        .filter(Boolean)
+        .map((valor) => String(valor).toUpperCase());
+
+      return identificadores.some((valor) => valor.includes("MVW_APF_GEOMETRIA_REGULAR"));
+    }) || null
+  );
+}
+
+async function buscarApfExterna(featureImovel, camadas = []) {
+  const camadaApf = obterConfigApf(camadas);
+  if (!camadaApf) {
+    throw new Error("Camada externa APF nao encontrada no catalogo atual.");
+  }
+
+  const baseUrl = camadaApf.analysisWfsBaseUrl || camadaApf.wfsBaseUrl;
+  const typeName = camadaApf.analysisTypeName || camadaApf.typeName;
+  const version = camadaApf.analysisWfsVersion || camadaApf.wfsVersion || "2.0.0";
+  const extraParams = camadaApf.analysisWfsParams || camadaApf.wfsParams || {};
+
+  if (!baseUrl || !typeName) {
+    throw new Error("Configuracao da camada APF externa esta incompleta.");
+  }
+
+  const buffer = turf.buffer(featureImovel, 1, { units: "kilometers" });
+  const bbox = `${turf.bbox(buffer).join(",")},EPSG:4326`;
+  const typeParam = String(version).startsWith("2.") ? "typenames" : "typeName";
+
+  const query = new URLSearchParams({
+    base: baseUrl,
+    service: "WFS",
+    version,
+    request: "GetFeature",
+    outputFormat: "application/json",
+    srsName: "EPSG:4326",
+    bbox,
+  });
+  query.set(typeParam, typeName);
+
+  Object.entries(extraParams).forEach(([chave, valor]) => {
+    if (valor !== undefined && valor !== null && valor !== "") {
+      query.set(chave, String(valor));
+    }
+  });
+
+  const response = await fetch(`${config.PROXY_WFS_BASE_URL}?${query.toString()}`);
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Falha ao consultar APF externa: ${response.status}`);
+  }
+
+  if (!text.trim() || text.trim().startsWith("<")) {
+    throw new Error("APF externa retornou resposta invalida.");
+  }
+
+  const geojson = JSON.parse(text);
+  if (!geojson?.features?.length) {
+    throw new Error("Nenhuma APF encontrada para o CAR informado.");
+  }
+
+  return geojson;
+}
 
 export default function GerarAreaBeneficiavel({
   map,
   drawnItemsRef,
   camadasImportadas,
-  setCamadasImportadas
+  setCamadasImportadas,
+  camadas,
 }) {
   const gerar = async () => {
     if (!map || !drawnItemsRef.current) {
-      console.warn("⚠️ Referências do mapa ou itens desenhados não estão disponíveis.");
+      console.warn("Referencias do mapa ou itens desenhados nao estao disponiveis.");
       return;
     }
 
-    console.log("✅ Iniciando geração da Área Beneficiável...");
-
     const obterCamada = (nomeParcial) =>
-      camadasImportadas.find(c => c.nome.includes(nomeParcial));
+      camadasImportadas.find((camada) => camada.nome.includes(nomeParcial));
 
     const camadaImovel = obterCamada("Area_do_Imovel");
     const camadaRL = obterCamada("Reserva_Legal");
     const camadaAPP = obterCamada("Area_de_Preservacao_Permanente");
-    const camadaRemanescente = obterCamada("Remanescente");
+    const camadaCoberturaSolo = obterCamada("Cobertura_do_Solo");
     const camadaServidao = obterCamada("Servidao_Administrativa");
 
-
-
-    const isValidFeature = (feature) =>
-  feature &&
-  feature.type === 'Feature' &&
-  feature.geometry &&
-  typeof feature.geometry.type === 'string' &&
-  ['Polygon', 'MultiPolygon'].includes(feature.geometry.type) &&
-  Array.isArray(feature.geometry.coordinates) &&
-  feature.geometry.coordinates.length > 0;
-
-
-
     if (!camadaImovel) {
-      alert("❌ Área do imóvel não encontrada.");
+      alert("Area do imovel nao encontrada.");
       return;
     }
 
-    let geoImovel = camadaImovel.layer.toGeoJSON();
+    const featureImovel = obterFeaturePrincipal(camadaImovel.layer);
+    if (!featureImovel?.geometry) {
+      alert("Geometria da area do imovel nao esta disponivel.");
+      return;
+    }
 
-    // 🔁 Carregar e intersectar com APF dinamicamente (como em VerificarSobreposicao)
-    const carregarAPFeIntersectar = async (geoImovel) => {
+    const ufCAR = extrairUfDoCAR(featureImovel);
+    const exigeApf = ufCAR === "MT";
+
+    const impeditivas = [
+      obterColecaoGeoJSON(camadaRL?.layer),
+      obterColecaoGeoJSON(camadaAPP?.layer),
+      obterColecaoCoberturaSoloFiltrada(camadaCoberturaSolo?.layer),
+      obterColecaoGeoJSON(camadaServidao?.layer),
+    ].filter(Boolean);
+
+    let apfGeojson = null;
+
+    if (exigeApf) {
       try {
-        const buffer = turf.buffer(geoImovel.features?.[0] || geoImovel, 1, { units: 'kilometers' });
-        const bbox = turf.bbox(buffer);
-
-        const wfsUrl = `http://localhost:8080/geoserver/webgis/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=webgis:APF&bbox=${bbox.join(',')},EPSG:4326&outputFormat=application/json`;
-
-        const res = await fetch(wfsUrl);
-        const data = await res.json();
-
-        console.log("📦 APF carregada via WFS:", data);
-
-        
-
-       const intersectadas = [];
-
-const geoFeatureImovel = geoImovel.features?.[0] || geoImovel;
-
-if (!isValidFeature(geoFeatureImovel)) {
-  console.error("❌ Geometria do imóvel inválida ou ausente.");
-  return null;
-}
-
-for (const f of data.features) {
-  if (!isValidFeature(f)) {
-    console.warn("⚠️ Ignorando feature APF inválida:", f);
-    continue;
-  }
-
-  try {
-    const intersecao = turf.intersect(geoFeatureImovel, f);
-    if (intersecao && intersecao.geometry) {
-      intersectadas.push(intersecao);
-    }
-  } catch (e) {
-    console.warn("⚠️ Erro ao intersectar uma feature válida da APF:", e);
-  }
-}
-
-
-
-
-
-
-
-        if (intersectadas.length === 0) {
-          console.warn("⚠️ Nenhuma interseção válida com APF.");
-          return null;
-        }
-
-        const uniao = intersectadas.reduce((acc, feat) => {
-          try {
-            return acc ? turf.union(acc, feat) : feat;
-          } catch (e) {
-            console.warn("⚠️ Erro ao unir interseções:", e);
-            return acc;
-          }
-        }, null);
-
-        return uniao;
-      } catch (e) {
-        console.error("❌ Erro ao buscar/intersectar APF:", e);
-        return null;
+        apfGeojson = await buscarApfExterna(featureImovel, camadas);
+      } catch (error) {
+        console.error("Erro ao buscar APF externa:", error);
+        alert(
+          "Para CAR do Mato Grosso, a area beneficiavel precisa ser intersectada com a APF. Nao foi possivel validar a APF externa."
+        );
+        return;
       }
-    };
-
-    const apfGeo = await carregarAPFeIntersectar(geoImovel);
-    if (apfGeo) {
-      geoImovel = apfGeo;
-      console.log("✅ Interseção com APF aplicada.");
     }
 
-    // 🔎 Identificar áreas impeditivas
-    const impeditivas = [];
-    [camadaRL, camadaAPP, camadaRemanescente, camadaServidao].forEach(camada => {
-      if (camada) {
-        const geo = camada.layer.toGeoJSON();
-        if (geo?.features?.length || geo?.geometry) {
-          impeditivas.push(geo);
-        }
-      }
-    });
-
-    // 🧠 Envia para backend para calcular diferença
     try {
-      const response = await fetch("http://localhost:5000/gerar-area-beneficiavel", {
+      const response = await fetch(config.GENERATE_AREA_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imovel: geoImovel.features?.[0] || geoImovel,
+          imovel: featureImovel,
           impeditivas,
-          apf: null,
-          estado: "NA" // opcional, pois agora usamos bbox
-        })
+          apf: apfGeojson,
+          estado: exigeApf ? "MT" : ufCAR || "NA",
+        }),
       });
 
       const resultado = await response.json();
 
-      if (resultado.erro) {
-        alert("Erro ao calcular diferença: " + resultado.erro);
+      if (!response.ok || resultado.erro) {
+        alert(`Erro ao calcular area beneficiavel: ${resultado.erro || response.status}`);
         return;
       }
 
-      const geoFinal = resultado;
-
-      const novaLayer = new L.GeoJSON(geoFinal, {
-        style: { color: "#27ae60", weight: 1, fillOpacity: 0.5 }
+      const novaLayer = new L.GeoJSON(resultado, {
+        style: { color: "#27ae60", weight: 1, fillOpacity: 0.5 },
       });
+
+      if (!novaLayer.getLayers().length) {
+        alert("A area beneficiavel resultou vazia apos aplicar as restricoes.");
+        return;
+      }
 
       novaLayer.addTo(drawnItemsRef.current);
       map.fitBounds(novaLayer.getBounds());
 
-      setCamadasImportadas(prev => [
+      setCamadasImportadas((prev) => [
         ...prev,
         {
           nome: "Área Beneficiável",
           layer: novaLayer,
-          visivel: true
-        }
+          visivel: true,
+          exportavel: true,
+        },
       ]);
-
-      console.log("✅ Área Beneficiável adicionada com sucesso.");
-    } catch (e) {
-      console.error("❌ Erro ao gerar área beneficiável:", e);
-      alert("Erro ao gerar área beneficiável.");
+    } catch (error) {
+      console.error("Erro ao gerar area beneficiavel:", error);
+      alert("Erro ao gerar area beneficiavel.");
     }
   };
 
   return (
     <button onClick={gerar} title="Gerar Área Beneficiável">
-      <img src="/icons/plant.svg" alt="Área Beneficiável" style={{ width: '24px', height: '24px' }} />
+      <img src="/icons/plant.svg" alt="Área Beneficiável" style={{ width: "22px", height: "22px" }} />
     </button>
   );
 }

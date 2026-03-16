@@ -1,28 +1,34 @@
-import React, { useState } from 'react';
-import L from 'leaflet';
-import tokml from 'tokml';
-import * as turf from '@turf/turf';
-import 'leaflet-draw'; // importante para registrar os eventos
-import { useMap } from 'react-leaflet';
-import BuscaCAR from './BuscaCAR';
-import GerarAreaBeneficiavel from './GerarAreaBeneficiavel';
-import VerificarSobreposicao from './VerificarSobreposicao';
-import MapaRelatorio from './MapaRelatorio';
+import React, { useRef, useState } from "react";
+import L from "leaflet";
+import tokml from "tokml";
+import * as turf from "@turf/turf";
+import "leaflet-draw";
+import { useMap } from "react-leaflet";
+import BuscaCAR from "./BuscaCAR";
+import GerarAreaBeneficiavel from "./GerarAreaBeneficiavel";
+import VerificarSobreposicao from "./VerificarSobreposicao";
+import MapaRelatorio from "./MapaRelatorio";
 
-
-
-
-
-
-function MeasurementPanel({ tipo, unidade, setUnidade, resultado, onReset, onClose }) {
+function MeasurementPanel({
+  tipo,
+  unidade,
+  setUnidade,
+  resultado,
+  medindo,
+  onStart,
+  onReset,
+  onClose,
+}) {
   return (
     <div id="measurement-panel">
-      <button className="close-button" onClick={onClose} type="button">x</button>
-      <h3>{tipo === 'polygon' ? 'MEDIR ÁREA' : 'MEDIR DISTÂNCIA'}</h3>
+      <button className="close-button" onClick={onClose} type="button">
+        x
+      </button>
+      <h3>{tipo === "polygon" ? "MEDIR AREA" : "MEDIR DISTANCIA"}</h3>
       <div className="unit-selector">
         <label>Unidade:</label>
-        <select value={unidade} onChange={e => setUnidade(e.target.value)}>
-          {tipo === 'polygon' ? (
+        <select value={unidade} onChange={(e) => setUnidade(e.target.value)}>
+          {tipo === "polygon" ? (
             <>
               <option value="m²">m²</option>
               <option value="ha">hectares</option>
@@ -32,20 +38,26 @@ function MeasurementPanel({ tipo, unidade, setUnidade, resultado, onReset, onClo
           ) : (
             <>
               <option value="m">metros</option>
-              <option value="km">quilômetros</option>
+              <option value="km">quilometros</option>
             </>
           )}
         </select>
       </div>
-      <div><strong>Resultado:</strong> {resultado}</div>
-      <button className="reset-button" onClick={onReset}>Resetar</button>
+      <div className="measurement-panelResult">
+        <strong>Resultado:</strong>
+        <span>{resultado || "Pronto para iniciar uma nova medicao."}</span>
+      </div>
+      <div className="measurement-panelActions">
+        <button className="start-button" onClick={onStart} type="button" disabled={medindo}>
+          {medindo ? "Medindo..." : "Iniciar"}
+        </button>
+        <button className="reset-button" onClick={onReset} type="button">
+          Resetar
+        </button>
+      </div>
     </div>
   );
 }
-
-
-
-
 
 export default function DrawTools({
   drawnItemsRef,
@@ -58,370 +70,436 @@ export default function DrawTools({
   setAreaDoImovelLayer,
   camadas,
   carLayerBusca,
-  setCarLayerBusca
+  setCarLayerBusca,
 }) {
+  const map = useMap();
+  const measurementLayersRef = useRef([]);
+  const measurementCreatedHandlerRef = useRef(null);
 
   const [showDrawSubmenu, setShowDrawSubmenu] = useState(false);
   const [showMeasureSubmenu, setShowMeasureSubmenu] = useState(false);
   const [tipoMedicao, setTipoMedicao] = useState(null);
-  const [unidade, setUnidade] = useState('ha');
-  const [resultado, setResultado] = useState('');
-const [linhasMedicao, setLinhasMedicao] = useState([]);
-const [medindo, setMedindo] = useState(false);
-const [medicaoDrawer, setMedicaoDrawer] = useState(null);
-const [mostrarBuscaCAR, setMostrarBuscaCAR] = useState(false);
-const [mapaRelatorioData, setMapaRelatorioData] = useState({
-  areaGeoJSON: null,
-  overlayLayers: [],
-});
+  const [unidade, setUnidade] = useState("ha");
+  const [resultado, setResultado] = useState("");
+  const [linhasMedicao, setLinhasMedicao] = useState([]);
+  const [medindo, setMedindo] = useState(false);
+  const [medicaoDrawer, setMedicaoDrawer] = useState(null);
+  const [mostrarBuscaCAR, setMostrarBuscaCAR] = useState(false);
+  const [mapaRelatorioData, setMapaRelatorioData] = useState({
+    areaGeoJSON: null,
+    overlayLayers: [],
+  });
 
+  const toolIconStyle = { width: "22px", height: "22px" };
 
-
-
-
-  const map = useMap();
-  const toggleMeasurementPanel = () => {
-    setShowMeasureSubmenu(prev => {
-      const novoEstado = !prev;
-      if (!novoEstado) {
-        setTipoMedicao(null);
-        setResultado('');
-      }
-      return novoEstado;
+  const clearMeasurementLayers = () => {
+    measurementLayersRef.current.forEach((layer) => {
+      drawnItemsRef.current?.removeLayer(layer);
     });
+
+    measurementLayersRef.current = [];
+    map?.closePopup();
+    setLinhasMedicao([]);
+    setResultado("");
+  };
+
+  const detachMeasurementCreatedHandler = () => {
+    if (map && measurementCreatedHandlerRef.current) {
+      map.off(L.Draw.Event.CREATED, measurementCreatedHandlerRef.current);
+      measurementCreatedHandlerRef.current = null;
+    }
+  };
+
+  const stopMeasurementMode = ({ clearResults = false, closePanel = false } = {}) => {
+    medicaoDrawer?.disable();
+    detachMeasurementCreatedHandler();
+    setMedicaoDrawer(null);
+    setMedindo(false);
+
+    if (clearResults) {
+      clearMeasurementLayers();
+    }
+
+    if (closePanel) {
+      setTipoMedicao(null);
+      setShowMeasureSubmenu(false);
+    }
+  };
+
+  const toggleDrawSubmenu = () => {
+    if (showMeasureSubmenu || tipoMedicao || medindo) {
+      stopMeasurementMode({ clearResults: true, closePanel: true });
+    }
+
+    setShowDrawSubmenu((prev) => !prev);
+  };
+
+  const toggleMeasurementPanel = () => {
+    if (showMeasureSubmenu || tipoMedicao || medindo) {
+      stopMeasurementMode({ clearResults: true, closePanel: true });
+      return;
+    }
+
+    setShowDrawSubmenu(false);
+    setShowMeasureSubmenu(true);
   };
 
   const startDraw = (tipo) => {
- 
-
-
-  if (!map || !drawnItemsRef.current || !drawnItemsRef.current._map) {
-  console.warn("⚠️ Mapa ou drawnItemsRef ainda não estão prontos");
-  return;
-}
-
-
-  console.log("🟢 Iniciando desenho:", tipo);
-
-
-    const options = { shapeOptions: { color: '#6f89a5' } };
-    let drawer;
-    switch (tipo) {
-      case 'polygon': drawer = new L.Draw.Polygon(map, options); break;
-      case 'rectangle': drawer = new L.Draw.Rectangle(map, options); break;
-      case 'polyline': drawer = new L.Draw.Polyline(map, options); break;
-      case 'marker':
-  const customMarker = new L.Icon({
-    iconUrl: '/icons/marker.png',   // caminho do seu ícone
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-  });
-  drawer = new L.Draw.Marker(map, { icon: customMarker });
-  break;
-
-      default: return;
+    if (!map || !drawnItemsRef.current || !drawnItemsRef.current._map) {
+      console.warn("Mapa ou drawnItemsRef ainda nao estao prontos");
+      return;
     }
+
+    const options = { shapeOptions: { color: "#6f89a5" } };
+    let drawer;
+
+    setShowDrawSubmenu(false);
+
+    switch (tipo) {
+      case "polygon":
+        drawer = new L.Draw.Polygon(map, options);
+        break;
+      case "rectangle":
+        drawer = new L.Draw.Rectangle(map, options);
+        break;
+      case "polyline":
+        drawer = new L.Draw.Polyline(map, options);
+        break;
+      case "marker": {
+        const customMarker = new L.Icon({
+          iconUrl: "/icons/marker.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        });
+        drawer = new L.Draw.Marker(map, { icon: customMarker });
+        break;
+      }
+      default:
+        return;
+    }
+
     drawer.enable();
-    map.once(L.Draw.Event.CREATED, function (e) {
+    map.once(L.Draw.Event.CREATED, (e) => {
       drawnItemsRef.current.addLayer(e.layer);
-      setDesenhos(prev => [...prev, {
-        tipo: tipo.charAt(0).toUpperCase() + tipo.slice(1),
-        layer: e.layer,
-        exportar: true
-      }]);
+      setDesenhos((prev) => [
+        ...prev,
+        {
+          tipo: tipo.charAt(0).toUpperCase() + tipo.slice(1),
+          layer: e.layer,
+          visivel: true,
+        },
+      ]);
     });
   };
 
-  
-
   const startMeasurement = (tipo) => {
-  if (!map) return;
+    if (!map) return;
 
-  setTipoMedicao(tipo);
-  setResultado('');
-  setLinhasMedicao([]);
-  setMedindo(true);
+    clearMeasurementLayers();
+    detachMeasurementCreatedHandler();
+    setTipoMedicao(tipo);
+    setResultado("");
+    setLinhasMedicao([]);
+    setMedindo(true);
 
-  const shapeOptions = { color: '#c38f5d' };
-const novoDrawer = tipo === 'polygon'
-  ? new L.Draw.Polygon(map, { shapeOptions })
-  : new L.Draw.Polyline(map, { shapeOptions });
+    const shapeOptions = { color: "#c38f5d" };
+    const novoDrawer =
+      tipo === "polygon"
+        ? new L.Draw.Polygon(map, { shapeOptions })
+        : new L.Draw.Polyline(map, { shapeOptions });
 
-novoDrawer.enable();
-setMedicaoDrawer(novoDrawer);
- // 👈 guarda referência
+    novoDrawer.enable();
+    setMedicaoDrawer(novoDrawer);
 
+    const handleMeasurementCreated = (e) => {
+      detachMeasurementCreatedHandler();
+      setMedicaoDrawer(null);
 
+      const layer = e.layer;
+      const geojson = layer.toGeoJSON();
 
-  map.once(L.Draw.Event.CREATED, function (e) {
-    const layer = e.layer;
-    const geojson = layer.toGeoJSON();
+      measurementLayersRef.current.push(layer);
+      drawnItemsRef.current.addLayer(layer);
 
-    if (tipo === 'polygon') {
-      const areaM2 = turf.area(geojson);
-      let valor = 0;
-      let unidadeStr = '';
-      switch (unidade) {
-        case 'm²': valor = areaM2; unidadeStr = 'm²'; break;
-        case 'ha': valor = areaM2 / 10000; unidadeStr = 'hectares'; break;
-        case 'km²': valor = areaM2 / 1e6; unidadeStr = 'km²'; break;
-        case 'alq': valor = areaM2 / 24200; unidadeStr = 'alqueires'; break;
-        default: valor = areaM2; unidadeStr = 'm²';
+      if (tipo === "polygon") {
+        const areaM2 = turf.area(geojson);
+        let valor = 0;
+        let unidadeStr = "";
+
+        switch (unidade) {
+          case "m²":
+            valor = areaM2;
+            unidadeStr = "m²";
+            break;
+          case "ha":
+            valor = areaM2 / 10000;
+            unidadeStr = "hectares";
+            break;
+          case "km²":
+            valor = areaM2 / 1e6;
+            unidadeStr = "km²";
+            break;
+          case "alq":
+            valor = areaM2 / 24200;
+            unidadeStr = "alqueires";
+            break;
+          default:
+            valor = areaM2;
+            unidadeStr = "m²";
+            break;
+        }
+
+        const center = layer.getBounds().getCenter();
+        L.popup()
+          .setLatLng(center)
+          .setContent(`<b>${valor.toFixed(2)} ${unidadeStr}</b>`)
+          .openOn(map);
+
+        setResultado(`${valor.toFixed(2)} ${unidadeStr}`);
+        setMedindo(false);
+        return;
       }
 
-      const center = layer.getBounds().getCenter();
-      L.popup()
-        .setLatLng(center)
-        .setContent(`<b>${valor.toFixed(2)} ${unidadeStr}</b>`)
-        .openOn(map);
-
-      setResultado(`${valor.toFixed(2)} ${unidadeStr}`);
-      drawnItemsRef.current.addLayer(layer);
-      setMedindo(false); // fim da medição
-    } else {
-      // cálculo dos segmentos de linha
       const coords = geojson.geometry.coordinates;
       let total = 0;
       const segmentos = [];
 
-      for (let i = 1; i < coords.length; i++) {
+      for (let i = 1; i < coords.length; i += 1) {
         const seg = turf.lineString([coords[i - 1], coords[i]]);
-        const dist = turf.length(seg, { units: unidade === 'km' ? 'kilometers' : 'meters' });
+        const dist = turf.length(seg, {
+          units: unidade === "km" ? "kilometers" : "meters",
+        });
         total += dist;
-        segmentos.push({ segmento: `${i} → ${i + 1}`, valor: dist });
+        segmentos.push({ segmento: `${i} -> ${i + 1}`, valor: dist });
       }
 
       setLinhasMedicao(segmentos);
-      setResultado(`Distância total: ${unidade === 'km' ? total.toFixed(2) + ' km' : (total * 1000).toFixed(2) + ' m'}`);
-      drawnItemsRef.current.addLayer(layer);
+      setResultado(
+        unidade === "km"
+          ? `Distancia total: ${total.toFixed(2)} km`
+          : `Distancia total: ${(total * 1000).toFixed(2)} m`
+      );
       setMedindo(false);
-    }
-  });
-};
+    };
 
+    measurementCreatedHandlerRef.current = handleMeasurementCreated;
+    map.on(L.Draw.Event.CREATED, handleMeasurementCreated);
+  };
 
   const resetMeasurement = () => {
-    drawnItemsRef.current.clearLayers();
-    setResultado('');
+    stopMeasurementMode({ clearResults: true });
   };
 
- const exportarKML = () => {
-  const features = [];
+  const exportarKML = () => {
+    const features = [];
 
-  drawnItemsRef.current.eachLayer(layer => {
-    let feature = layer.toGeoJSON();
+    drawnItemsRef.current.eachLayer((layer) => {
+      let feature = layer.toGeoJSON();
 
-    // Garante que estamos lidando com uma Feature
-    if (feature.type === 'FeatureCollection') {
-      feature = feature.features[0];
-    }
-
-    let coords = turf.getCoords(feature);
-    let numVertices = coords.flat(Infinity).length;
-
-    // 🔁 Se mais de 100 vértices, simplifica iterativamente
-    if (numVertices > 100) {
-      console.log(`🔁 Iniciando simplificação com ${numVertices} vértices`);
-
-      let tolerance = 0.0005;
-      let simplified = feature;
-
-      while (numVertices > 100 && tolerance < 0.01) {
-        try {
-          simplified = turf.simplify(feature, {
-            tolerance,
-            highQuality: true,
-            mutate: false
-          });
-
-          coords = turf.getCoords(simplified);
-          numVertices = coords.flat(Infinity).length;
-
-          console.log(`→ Simplificado para ${numVertices} vértices (tolerance=${tolerance.toFixed(4)})`);
-          tolerance += 0.0005;
-        } catch (e) {
-          console.warn("⚠️ Erro na simplificação:", e);
-          break;
-        }
+      if (feature.type === "FeatureCollection") {
+        feature = feature.features[0];
       }
 
-      feature = simplified;
-    }
+      let coords = turf.getCoords(feature);
+      let numVertices = coords.flat(Infinity).length;
 
-    // ✅ Limpa coordenadas duplicadas consecutivas
-    feature = turf.cleanCoords(feature);
+      if (numVertices > 100) {
+        let tolerance = 0.0005;
+        let simplified = feature;
 
-    features.push(feature);
-  });
+        while (numVertices > 100 && tolerance < 0.01) {
+          try {
+            simplified = turf.simplify(feature, {
+              tolerance,
+              highQuality: true,
+              mutate: false,
+            });
 
-  const geojson = {
-    type: "FeatureCollection",
-    features
+            coords = turf.getCoords(simplified);
+            numVertices = coords.flat(Infinity).length;
+            tolerance += 0.0005;
+          } catch (error) {
+            console.warn("Erro na simplificacao:", error);
+            break;
+          }
+        }
+
+        feature = simplified;
+      }
+
+      feature = turf.cleanCoords(feature);
+      features.push(feature);
+    });
+
+    const geojson = {
+      type: "FeatureCollection",
+      features,
+    };
+
+    const kml = tokml(geojson);
+    const blob = new Blob([kml], {
+      type: "application/vnd.google-earth.kml+xml",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "desenhos.kml";
+    a.click();
   };
-
-  const kml = tokml(geojson);
-  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'desenhos.kml';
-  a.click();
-};
-
-
 
   return (
     <>
       <div id="tool-sidebar">
-        {/* DESENHAR */}
-        <div style={{ position: 'relative' }}>
-          <button onClick={() => setShowDrawSubmenu(p => !p)} title="Desenhar" type="button">
-            <img src="/icons/desenho.png" alt="Desenhar" style={{ width: '24px', height: '24px' }} />
+        <div style={{ position: "relative" }}>
+          <button
+            className={showDrawSubmenu ? "is-active" : ""}
+            onClick={toggleDrawSubmenu}
+            title="Desenhar"
+            type="button"
+            aria-pressed={showDrawSubmenu}
+          >
+            <img src="/icons/pencil-line.svg" alt="Desenhar" style={toolIconStyle} />
           </button>
           {showDrawSubmenu && (
             <div className="tool-submenu">
-              <button onClick={() => startDraw('polygon')} title="Poligono" type="button">
-                <img src="/icons/poligono.png" alt="Polígono" style={{ width: '24px', height: '24px' }} />
+              <button onClick={() => startDraw("polygon")} title="Poligono" type="button">
+                <img src="/icons/crop.svg" alt="Poligono" style={toolIconStyle} />
               </button>
-              <button onClick={() => startDraw('rectangle')} title="Retangulo" type="button">[]</button>
-              <button onClick={() => startDraw('polyline')} title="Linha" type="button">
-                <img src="/icons/linha.png" alt="Linha" style={{ width: '24px', height: '24px' }} />
+              <button onClick={() => startDraw("rectangle")} title="Retangulo" type="button">
+                <img src="/icons/crop.svg" alt="Retangulo" style={toolIconStyle} />
               </button>
-              <button onClick={() => startDraw('marker')} title="Ponto" type="button">
-                <img src="/icons/ponto.png" alt="Ponto" style={{ width: '24px', height: '24px' }} />
+              <button onClick={() => startDraw("polyline")} title="Linha" type="button">
+                <img src="/icons/line-squiggle.svg" alt="Linha" style={toolIconStyle} />
+              </button>
+              <button onClick={() => startDraw("marker")} title="Ponto" type="button">
+                <img src="/icons/map-pin.svg" alt="Ponto" style={toolIconStyle} />
               </button>
               <button onClick={exportarKML} title="Exportar" type="button">
-                <img src="/icons/salvar.png" alt="Exportar" style={{ width: '24px', height: '24px' }} />
+                <img src="/icons/download.svg" alt="Exportar" style={toolIconStyle} />
               </button>
             </div>
           )}
         </div>
 
-        {/* MEDIR */}
-        <div style={{ position: 'relative' }}>
-          <button onClick={toggleMeasurementPanel} title="Medir" type="button">
-            <img src="/icons/medir.png" alt="Medir" style={{ width: '24px', height: '24px' }} />
+        <div style={{ position: "relative" }}>
+          <button
+            className={showMeasureSubmenu || tipoMedicao ? "is-active" : ""}
+            onClick={toggleMeasurementPanel}
+            title="Medir"
+            type="button"
+            aria-pressed={showMeasureSubmenu || !!tipoMedicao}
+          >
+            <img
+              src="/icons/ruler-dimension-line.svg"
+              alt="Medir"
+              style={toolIconStyle}
+            />
           </button>
           {showMeasureSubmenu && (
-  <div className="tool-submenu">
-    {!medindo && (
-      <>
-        <button onClick={() => startMeasurement('polygon')} title="Area" type="button">
-          <img src="/icons/Area.png" alt="Área" style={{ width: '24px', height: '24px' }} />
-        </button>
-        <button onClick={() => startMeasurement('polyline')} title="Distancia" type="button">
-          <img src="/icons/regua.png" alt="Distância" style={{ width: '24px', height: '24px' }} />
-        </button>
-      </>
-    )}
-    {medindo && (
-      <button
-  onClick={() => {
-    if (medicaoDrawer) medicaoDrawer.disable();
-    setMedindo(false);
-    setTipoMedicao(null);
-    setMedicaoDrawer(null);
-  }}
-  title="Parar"
-  type="button"
->
-
-        <img src="/icons/stop.png" alt="Parar" style={{ width: '24px', height: '24px' }} />
-      </button>
-    )}
-  </div>
-)}
-
+            <div className="tool-submenu">
+              {!medindo && (
+                <>
+                  <button onClick={() => startMeasurement("polygon")} title="Area" type="button">
+                    <img src="/icons/crop.svg" alt="Area" style={toolIconStyle} />
+                  </button>
+                  <button onClick={() => startMeasurement("polyline")} title="Distancia" type="button">
+                    <img
+                      src="/icons/ruler-dimension-line.svg"
+                      alt="Distancia"
+                      style={toolIconStyle}
+                    />
+                  </button>
+                </>
+              )}
+              {medindo && (
+                <button onClick={() => stopMeasurementMode()} title="Parar" type="button">
+                  <img src="/icons/circle-stop.svg" alt="Parar" style={toolIconStyle} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* IMPORTAR */}
         <button onClick={() => fileInputRef.current.click()} title="Importar" type="button">
-          <img src="/icons/folder.png" alt="Importar" style={{ width: '24px', height: '24px' }} />
+          <img src="/icons/file-input.svg" alt="Importar" style={toolIconStyle} />
         </button>
+
         <button onClick={() => fileInputRefCAR.current.click()} title="Importar CAR" type="button">
-          <img src="/icons/importcar.png" alt="Importar CAR" style={{ width: '24px', height: '24px' }} />
+          <img src="/icons/novo-car.png" alt="Importar CAR" style={toolIconStyle} />
         </button>
 
-        <button onClick={() => setMostrarBuscaCAR((prev) => !prev)} title="Buscar CAR" type="button">
-  <img src="/icons/buscar-car.png" alt="Buscar CAR" style={{ width: '24px', height: '24px' }} />
-</button>
+        <button
+          className={mostrarBuscaCAR ? "is-active" : ""}
+          onClick={() => setMostrarBuscaCAR((prev) => !prev)}
+          title="Buscar CAR"
+          type="button"
+          aria-pressed={mostrarBuscaCAR}
+        >
+          <img src="/icons/buscar-car.png" alt="Buscar CAR" style={toolIconStyle} />
+        </button>
 
-{/* GERAR ÁREA BENEFICIÁVEL */}
-{/* GERAR ÁREA BENEFICIÁVEL */}
-<GerarAreaBeneficiavel
-  map={map}
-  drawnItemsRef={drawnItemsRef}
-  camadasImportadas={camadasImportadas}
-  setCamadasImportadas={setCamadasImportadas}
-/>
+        <GerarAreaBeneficiavel
+          map={map}
+          drawnItemsRef={drawnItemsRef}
+          camadasImportadas={camadasImportadas}
+          setCamadasImportadas={setCamadasImportadas}
+          camadas={camadas}
+        />
 
-
-
-        {/* VERIFICAR SOBREPOSIÇÃO */}
         <VerificarSobreposicao
-  carLayerBusca={carLayerBusca}
-  camadas={camadas}
-  onAtualizarMapaRelatorio={setMapaRelatorioData}
-/>
-
-
-
-
+          carLayerBusca={carLayerBusca}
+          camadas={camadas}
+          onAtualizarMapaRelatorio={setMapaRelatorioData}
+        />
       </div>
 
-      {/* PAINEL DE MEDIÇÃO */}
-{tipoMedicao && (
-  <MeasurementPanel
-    tipo={tipoMedicao}
-    unidade={unidade}
-    setUnidade={setUnidade}
-    resultado={resultado}
-    onReset={resetMeasurement}
-    onClose={() => {
-      setTipoMedicao(null);
-      setShowMeasureSubmenu(false);
-      setResultado('');
-    }}
-  />
-)}
+      {tipoMedicao && (
+        <MeasurementPanel
+          tipo={tipoMedicao}
+          unidade={unidade}
+          setUnidade={setUnidade}
+          resultado={resultado}
+          medindo={medindo}
+          onStart={() => startMeasurement(tipoMedicao)}
+          onReset={resetMeasurement}
+          onClose={() => stopMeasurementMode({ clearResults: true, closePanel: true })}
+        />
+      )}
 
-<BuscaCAR
-  map={map}
-  drawnItemsRef={drawnItemsRef}
-  onClose={() => setMostrarBuscaCAR(false)}
-  visivel={mostrarBuscaCAR}
-  setCarLayerBusca={setCarLayerBusca}
-/>
+      <BuscaCAR
+        map={map}
+        drawnItemsRef={drawnItemsRef}
+        onClose={() => setMostrarBuscaCAR(false)}
+        visivel={mostrarBuscaCAR}
+        setCarLayerBusca={setCarLayerBusca}
+      />
 
+      {linhasMedicao.length > 0 && (
+        <div className="painel-medicao">
+          <strong>Segmentos:</strong>
+          <ul style={{ margin: 0, paddingLeft: "1em" }}>
+            {linhasMedicao.map((seg, i) => (
+              <li key={i}>
+                {seg.segmento}:{" "}
+                {(unidade === "km" ? seg.valor : seg.valor * 1000).toFixed(1)}{" "}
+                {unidade === "km" ? "km" : "m"}
+              </li>
+            ))}
+          </ul>
+          <div>
+            <strong>{resultado}</strong>
+          </div>
+        </div>
+      )}
 
-
-
-{/* ✅ PAINEL DE SEGMENTOS DA LINHA */}
-{linhasMedicao.length > 0 && (
-  <div className="painel-medicao">
-    <strong>Segmentos:</strong>
-    <ul style={{ margin: 0, paddingLeft: '1em' }}>
-      {linhasMedicao.map((seg, i) => (
-        <li key={i}>
-          {seg.segmento}: {(unidade === 'km' ? seg.valor : seg.valor * 1000).toFixed(1)} {unidade === 'km' ? 'km' : 'm'}
-        </li>
-      ))}
-    </ul>
-    <div><strong>{resultado}</strong></div>
-  </div>
-)}
-
-{carLayerBusca && (
-  <MapaRelatorio
-    geojson={mapaRelatorioData.areaGeoJSON || carLayerBusca.toGeoJSON()}
-    overlayLayers={mapaRelatorioData.overlayLayers}
-  />
-)}
-
-
+      {carLayerBusca && (
+        <MapaRelatorio
+          geojson={mapaRelatorioData.areaGeoJSON || carLayerBusca.toGeoJSON()}
+          overlayLayers={mapaRelatorioData.overlayLayers}
+        />
+      )}
     </>
   );
 }
-

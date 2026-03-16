@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import config from "../config";
 
 export default function CadastrarUsuario() {
   const [nome, setNome] = useState("");
@@ -10,7 +11,7 @@ export default function CadastrarUsuario() {
     e.preventDefault();
 
     try {
-      await axios.post("http://localhost:5000/auth/dev-register", {
+      await axios.post(`${config.API_BASE_URL}/auth/dev-register`, {
         nome,
         email,
         senha

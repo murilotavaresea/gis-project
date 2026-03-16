@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import formatarNomeCamada from "../utils/formatarNomeCamada";
-import PainelFontesCamadas from "./PainelFontesCamadas";
 
 const collator = new Intl.Collator("pt-BR", { sensitivity: "base" });
 
@@ -86,6 +85,7 @@ export default function PainelCamadas({
   camadasImportadas,
   toggleCamadaImportada,
   removerCamadaImportada,
+  exportarCamadaImportada,
   removerTodasCamadasCAR,
   formatarNomeCAR,
   desenhos,
@@ -97,7 +97,6 @@ export default function PainelCamadas({
   indiceEditando,
 }) {
   const [busca, setBusca] = useState("");
-  const [mostrarFontesCamadas, setMostrarFontesCamadas] = useState(false);
 
   const grupos = useMemo(() => {
     const base = camadas || [];
@@ -221,25 +220,7 @@ export default function PainelCamadas({
               placeholder="Buscar camada..."
             />
           </div>
-
-          <button
-            type="button"
-            className={`pc-infoButton ${mostrarFontesCamadas ? "active" : ""}`}
-            title="Fontes das camadas"
-            aria-label="Abrir fontes das camadas"
-            onClick={() => setMostrarFontesCamadas((prev) => !prev)}
-          >
-            i
-          </button>
         </div>
-
-        {mostrarFontesCamadas && (
-          <PainelFontesCamadas
-            camadas={camadas}
-            variant="inline"
-            onClose={() => setMostrarFontesCamadas(false)}
-          />
-        )}
       </div>
 
       <div className="pc-content">
@@ -347,12 +328,22 @@ export default function PainelCamadas({
               checked={!!camada.visivel}
               onToggle={() => toggleCamadaImportada(camada.nome)}
               right={
-                <ActionIconButton
-                  title="Remover camada"
-                  onClick={() => removerCamadaImportada(index)}
-                  iconSrc="/icons/lixo.png"
-                  size={16}
-                />
+                <>
+                  {camada.exportavel && (
+                    <ActionIconButton
+                      title="Exportar camada em KML"
+                      onClick={() => exportarCamadaImportada(index)}
+                      iconSrc="/icons/download.svg"
+                      size={16}
+                    />
+                  )}
+                  <ActionIconButton
+                    title="Remover camada"
+                    onClick={() => removerCamadaImportada(index)}
+                    iconSrc="/icons/lixo.png"
+                    size={16}
+                  />
+                </>
               }
             />
           ))}
@@ -385,7 +376,7 @@ export default function PainelCamadas({
                 role="button"
                 tabIndex={0}
               >
-                <span className={`pc-dot ${desenho.exportar ? "on" : ""}`} />
+                <span className={`pc-dot ${desenho.visivel !== false ? "on" : ""}`} />
                 <span className="pc-layerName" title={desenho.tipo}>
                   {desenho.tipo}
                 </span>
@@ -393,7 +384,7 @@ export default function PainelCamadas({
 
               <div className="pc-layerRight">
                 <Toggle
-                  checked={!!desenho.exportar}
+                  checked={desenho.visivel !== false}
                   onChange={() => alternarDesenhoParaExportacao(index)}
                 />
 
@@ -411,7 +402,7 @@ export default function PainelCamadas({
                 <ActionIconButton
                   title="Editar desenho"
                   onClick={() => editarDesenhoIndividual(index)}
-                  iconSrc="/icons/desenho.png"
+                  iconSrc="/icons/pencil-line.svg"
                   size={16}
                 />
 

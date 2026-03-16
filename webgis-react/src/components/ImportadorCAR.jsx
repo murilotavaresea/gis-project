@@ -1,6 +1,18 @@
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 import config from "../config";
+import { isTemaRemanescenteVegetacaoNativa } from "../utils/coberturaSoloCAR";
+
+const appMarkerIcon = L.icon({
+  iconUrl: "/icons/map-pin.svg",
+  iconSize: [28, 28],
+  iconAnchor: [14, 28],
+  popupAnchor: [0, -24],
+});
+
+function isMarcadorAPP(filename = "") {
+  return filename.includes("MARCADORES_Area_de_Preservacao_Permanente");
+}
 
 export default function ImportadorCAR({
   fileInputRefCAR,
@@ -11,8 +23,11 @@ export default function ImportadorCAR({
   const map = useMap();
 
   const handleImportCAR = async (e) => {
-    const file = e.target.files[0];
+    const input = e.target;
+    const file = input.files[0];
     if (!file) return;
+
+    input.value = "";
 
     const formData = new FormData();
     formData.append("file", file);
@@ -33,19 +48,37 @@ export default function ImportadorCAR({
 
         const layer = new L.GeoJSON(geojson, {
           style: (feature) => {
-            const tema = feature?.properties?.tema?.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             if (filename.includes("Area_do_Imovel")) return { color: "black", weight: 5, fillOpacity: 0 };
             if (filename.includes("Reserva_Legal")) return { color: "green", weight: 2, fillOpacity: 0.3 };
             if (filename.includes("Area_de_Preservacao_Permanente")) return { color: "red", weight: 2, fillOpacity: 0.3 };
             if (filename.includes("Cobertura_do_Solo")) {
-              if (tema?.includes("Remanescente")) return { color: "brown", weight: 2, fillOpacity: 0.3 };
+              if (isTemaRemanescenteVegetacaoNativa(feature?.properties?.tema)) {
+                return { color: "brown", weight: 2, fillOpacity: 0.3 };
+              }
               return { opacity: 0, fillOpacity: 0 };
             }
             return { color: "gray", weight: 1, fillOpacity: 0.1 };
           },
+          pointToLayer: (_feature, latlng) => {
+            if (isMarcadorAPP(filename)) {
+              return L.marker(latlng, { icon: appMarkerIcon });
+            }
+
+            return L.circleMarker(latlng, {
+              radius: 6,
+              color: "#c38f5d",
+              weight: 2,
+              fillColor: "#f4ede3",
+              fillOpacity: 0.95,
+            });
+          },
           onEachFeature: (feature, layer) => {
-            const tema = feature?.properties?.tema?.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            if (filename.includes("Cobertura_do_Solo") && !tema?.includes("Remanescente")) return;
+            if (
+              filename.includes("Cobertura_do_Solo") &&
+              !isTemaRemanescenteVegetacaoNativa(feature?.properties?.tema)
+            ) {
+              return;
+            }
             layer.bindPopup(`<b>${filename}</b><br>${feature?.properties?.tema || ""}`);
           }
         });

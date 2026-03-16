@@ -2,7 +2,6 @@ from flask import Blueprint, request, jsonify
 import os
 import zipfile
 import tempfile
-import geopandas as gpd
 
 importar_car_bp = Blueprint('importar_car_bp', __name__)
 
@@ -38,6 +37,8 @@ def importar_car():
                 if f.endswith('.shp'):
                     shp_path = os.path.join(root, f)
                     try:
+                        import geopandas as gpd
+
                         gdf = gpd.read_file(shp_path).to_crs("EPSG:4326")
                         resultados[f] = gdf.__geo_interface__
                     except Exception as e:

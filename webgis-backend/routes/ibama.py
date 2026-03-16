@@ -1,7 +1,6 @@
 import os
 import tempfile
 
-import geopandas as gpd
 import requests
 from flask import Blueprint, Response, request
 
@@ -45,6 +44,8 @@ def gml_bytes_to_geojson(content):
     temp_path = None
 
     try:
+        import geopandas as gpd
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=".gml") as temp_file:
             temp_file.write(content)
             temp_path = temp_file.name

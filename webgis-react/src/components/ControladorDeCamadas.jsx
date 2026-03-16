@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useMap } from 'react-leaflet';
+import config from "../config";
 
 export default function ControladorDeCamadas({ nomeCamada, setCamadas }) {
   const map = useMap();
@@ -30,7 +31,7 @@ export default function ControladorDeCamadas({ nomeCamada, setCamadas }) {
           bounds.getNorth()
         ].join(',');
 
-        const url = `http://localhost:8080/geoserver/webgis/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${nomeCamada}&bbox=${bbox}&outputFormat=application/json`;
+        const url = `${config.GEOSERVER_BASE_URL}?service=WFS&version=1.0.0&request=GetFeature&typeName=${nomeCamada}&bbox=${bbox}&outputFormat=application/json`;
 
         fetch(url)
           .then(res => res.json())

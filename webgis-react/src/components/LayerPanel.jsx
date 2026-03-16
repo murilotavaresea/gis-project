@@ -46,7 +46,11 @@ export default function LayerPanel({
   }, [collapsed, camadasVisiveis, bringToFront, setOrdemCamadasAtivas]);
 
   return (
-    <div id="layer-control" style={{ userSelect: "none" }}>
+    <div
+      id="layer-control"
+      className={collapsed ? "is-collapsed" : ""}
+      style={{ userSelect: "none" }}
+    >
       <div className="layer-header" onClick={() => setCollapsed(!collapsed)}>
         <div className="layer-headerTitleGroup">
           <span className="layer-headerIcon">

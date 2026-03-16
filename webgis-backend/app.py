@@ -1,16 +1,34 @@
 import json
+import os
 
 from flask import Flask, jsonify
 from flask_cors import CORS
+from psycopg2 import sql
 from werkzeug.security import generate_password_hash
 
-from db import conn
-from importer import importar_shapefiles
 from config.camadas_externas import camadas_externas
+from db import get_db_connection
+from importer import importar_shapefiles
 from routes.auth import auth_bp
 from routes.diferenca import diferenca_bp
 from routes.ibama import ibama_bp
 from routes.importar_car import importar_car_bp
+
+
+def _load_allowed_origins():
+    origins = {
+        "http://localhost:3000",
+        "https://gis-project-azsp.onrender.com",
+        "https://gis-reactb.onrender.com",
+    }
+
+    extra_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+    for origin in extra_origins.split(","):
+        origin = origin.strip()
+        if origin:
+            origins.add(origin)
+
+    return sorted(origins)
 
 
 app = Flask(__name__)
@@ -18,10 +36,7 @@ CORS(
     app,
     resources={
         r"/*": {
-            "origins": [
-                "http://localhost:3000",
-                "https://gis-project-azsp.onrender.com",
-            ]
+            "origins": _load_allowed_origins()
         }
     },
 )
@@ -42,8 +57,8 @@ def atualizar_shapefiles():
     try:
         importar_shapefiles()
         return {"status": "sucesso", "mensagem": "Importacao concluida com sucesso!"}
-    except Exception as e:
-        return {"status": "erro", "mensagem": str(e)}, 500
+    except Exception as error:
+        return {"status": "erro", "mensagem": str(error)}, 500
 
 
 @app.route("/status")
@@ -53,20 +68,27 @@ def status():
 
 @app.route("/camadas", methods=["GET"])
 def listar_camadas_disponiveis():
+    conn = None
+
     try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT table_name
-            FROM information_schema.columns
-            WHERE column_name = 'geometry'
-            AND table_schema = 'public'
-            """
-        )
-        tabelas = [row["table_name"] for row in cur.fetchall()]
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT table_name
+                FROM information_schema.columns
+                WHERE column_name = 'geometry'
+                AND table_schema = 'public'
+                """
+            )
+            tabelas = [row["table_name"] for row in cur.fetchall()]
+
         return jsonify(tabelas)
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+    except Exception as error:
+        return jsonify({"erro": str(error)}), 500
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 @app.route("/<tabela>", methods=["GET"])
@@ -74,13 +96,19 @@ def dados_geojson(tabela):
     if tabela == "importar_car":
         return jsonify({"erro": "Tabela nao acessivel diretamente"}), 400
 
-    try:
-        cur = conn.cursor()
-        conn.rollback()
-        cur.execute(f'SELECT ST_AsGeoJSON(geometry) AS geom FROM "{tabela}"')
-        linhas = cur.fetchall()
-        features = []
+    conn = None
 
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                sql.SQL('SELECT ST_AsGeoJSON(geometry) AS geom FROM {}').format(
+                    sql.Identifier(tabela)
+                )
+            )
+            linhas = cur.fetchall()
+
+        features = []
         for linha in linhas:
             geom = linha["geom"]
             if geom:
@@ -93,28 +121,41 @@ def dados_geojson(tabela):
                 )
 
         return jsonify(features)
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
+    except Exception as error:
+        return jsonify({"erro": str(error)}), 500
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def criar_usuario_teste():
+    conn = None
+
     try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM usuarios WHERE email = %s", ("admin@teste.com",))
-        if not cur.fetchone():
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM usuarios WHERE email = %s", ("admin@teste.com",))
+            if cur.fetchone():
+                print("Usuario de teste ja existe.")
+                return
+
             senha_hash = generate_password_hash("123456")
             cur.execute(
                 "INSERT INTO usuarios (nome, email, senha_hash) VALUES (%s, %s, %s)",
                 ("Usuario de Teste", "admin@teste.com", senha_hash),
             )
             conn.commit()
-            print("Usuario de teste criado: admin@teste.com / 123456")
-        else:
-            print("Usuario de teste ja existe.")
-    except Exception as e:
-        print("Erro ao criar usuario de teste:", str(e))
+
+        print("Usuario de teste criado: admin@teste.com / 123456")
+    except Exception as error:
+        print("Erro ao criar usuario de teste:", str(error))
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 if __name__ == "__main__":
-    criar_usuario_teste()
+    if os.getenv("CREATE_TEST_USER", "").lower() == "true":
+        criar_usuario_teste()
+
     app.run(debug=True, port=5000, threaded=True)

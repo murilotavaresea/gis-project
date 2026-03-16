@@ -5,8 +5,11 @@ export default function Sidebar({
   onToggle,
   title = "WebGIS",
   subtitle = "Camadas e Ferramentas",
-  logoSrc = "/icons/webgis.svg",
+  logoSrc = "/icons/Logo-nova.png",
   frameTitle = "Camadas disponiveis",
+  sections = [],
+  activeSection = "camadas",
+  onChangeSection,
   children,
 }) {
   const [frameOpen, setFrameOpen] = useState(true);
@@ -24,38 +27,64 @@ export default function Sidebar({
       </button>
 
       <aside id="sidebar" aria-label="Painel lateral">
-        <div className="sb-header">
-          <div className="sb-brand">
-            <img className="sb-logo" src={logoSrc} alt="Logo" />
-            <div className="sb-brandText">
-              <div className="sb-title">{title}</div>
-              <div className="sb-subtitle">{subtitle}</div>
+        <div className="sb-shell">
+          <div className="sb-rail" aria-label="Navegacao do painel lateral">
+            <div className="sb-railTop">
+              {sections.map((section) => (
+                <button
+                  key={section.id}
+                  className={`sb-railBtn ${activeSection === section.id ? "active" : ""}`}
+                  type="button"
+                  onClick={() => onChangeSection?.(section.id)}
+                  title={section.label}
+                  aria-label={section.label}
+                  aria-pressed={activeSection === section.id}
+                >
+                  {section.icon ? (
+                    <img src={section.icon} alt={section.label} />
+                  ) : (
+                    <span>{section.shortLabel || section.label.slice(0, 1)}</span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
-        </div>
 
-        <div className="sb-content">
-          <div className="sb-frame">
-            <div className="sb-frameHeader">
-              <div className="sb-frameTitle">{frameTitle}</div>
-
-              <button
-                className="sb-frameToggle"
-                type="button"
-                onClick={() => setFrameOpen((v) => !v)}
-                aria-label={frameOpen ? "Recolher secao" : "Expandir secao"}
-                title={frameOpen ? "Recolher" : "Expandir"}
-              >
-                <span className={`sb-chevron ${frameOpen ? "open" : ""}`}>{">"}</span>
-              </button>
+          <div className="sb-main">
+            <div className="sb-header">
+              <div className="sb-brand">
+                <img className="sb-logo" src={logoSrc} alt="Logo" />
+                <div className="sb-brandText">
+                  <div className="sb-title">{title}</div>
+                  <div className="sb-subtitle">{subtitle}</div>
+                </div>
+              </div>
             </div>
 
-            {frameOpen && <div className="sb-frameBody">{children}</div>}
-          </div>
-        </div>
+            <div className="sb-content">
+              <div className="sb-frame">
+                <div className="sb-frameHeader">
+                  <div className="sb-frameTitle">{frameTitle}</div>
 
-        <div className="sb-footer">
-          <span>Sistema cartografico para analise e monitoramento</span>
+                  <button
+                    className="sb-frameToggle"
+                    type="button"
+                    onClick={() => setFrameOpen((v) => !v)}
+                    aria-label={frameOpen ? "Recolher secao" : "Expandir secao"}
+                    title={frameOpen ? "Recolher" : "Expandir"}
+                  >
+                    <span className={`sb-chevron ${frameOpen ? "open" : ""}`}>{">"}</span>
+                  </button>
+                </div>
+
+                {frameOpen && <div className="sb-frameBody">{children}</div>}
+              </div>
+            </div>
+
+            <div className="sb-footer">
+              <span>Sistema cartografico para analise e monitoramento</span>
+            </div>
+          </div>
         </div>
       </aside>
     </div>

@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import formatarNomeCamada from "../utils/formatarNomeCamada";
+import config from "../config";
 
-const GEOSERVER_INTERNO_URL = "http://localhost:8080/geoserver/webgis/ows";
+const GEOSERVER_INTERNO_URL = config.GEOSERVER_BASE_URL;
 const ACERVO_FUNDIARIO_OGC_URL = "http://acervofundiario.incra.gov.br/i3geo/ogc.php";
 
 function normalizarUrlFonte(url = "") {

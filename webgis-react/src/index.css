@@ -4,6 +4,18 @@
   --font-base: "Manrope", sans-serif;
   --font-heading: "Sora", sans-serif;
   --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  --color-sage-50: #f4f7f1;
+  --color-sage-100: #d0dccb;
+  --color-clay-100: #d7c7be;
+  --color-eucalyptus-200: #b3c5ba;
+  --color-eucalyptus-400: #88c3b5;
+  --color-soil-700: #6d6168;
+  --color-ink-900: #4e454b;
+  --color-ink-700: #655b62;
+  --color-border-soft: rgba(109, 97, 104, 0.12);
+  --color-border-strong: rgba(109, 97, 104, 0.2);
+  --color-shadow: rgba(86, 78, 84, 0.12);
+  --color-shadow-strong: rgba(86, 78, 84, 0.18);
 }
 
 html,
@@ -23,7 +35,10 @@ body {
   font-family: var(--font-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #09111c;
+  background:
+    radial-gradient(circle at top left, rgba(136, 195, 181, 0.12), transparent 28%),
+    linear-gradient(180deg, #f7faf6 0%, #edf3ee 100%);
+  color: var(--color-ink-900);
 }
 
 button,
@@ -35,4 +50,9 @@ textarea {
 
 code {
   font-family: var(--font-mono);
+}
+
+::selection {
+  background: rgba(136, 195, 181, 0.28);
+  color: var(--color-ink-900);
 }
