@@ -57,6 +57,8 @@ def criar_camadas_imoveis(estados, tema_prefixo, subgrupo_externo):
             "titulo": nome_estado,
             "typeName": f"{tema_prefixo}_{uf.lower()}",
             "wms": f"http://acervofundiario.incra.gov.br/i3geo/ogc.php?tema={tema_prefixo}_{uf.lower()}",
+            "identifyEnabled": True,
+            "opacity": 0.42,
             "minZoom": 7,
             "sourceType": "wms",
             "grupoExterno": "Imoveis",

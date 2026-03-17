@@ -1446,18 +1446,84 @@ footer {
   color: var(--text-strong);
 }
 
+.leaflet-popup-content {
+  margin: 10px 12px;
+}
+
 .leaflet-popup-content-wrapper {
   border: 1px solid var(--color-border-soft);
-  border-radius: 18px;
-  box-shadow: 0 18px 34px rgba(86, 78, 84, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 14px 28px rgba(86, 78, 84, 0.12);
 }
 
 .custom-popup {
-  max-height: 260px;
+  min-width: 250px;
+  max-width: 360px;
+  max-height: 240px;
   overflow-y: auto;
   overflow-x: hidden;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.custom-popupHeader {
+  margin-bottom: 8px;
+  padding: 5px 8px;
+  border: 1px solid rgba(109, 97, 104, 0.08);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(244, 248, 244, 0.98), rgba(236, 243, 236, 0.94));
+  color: rgba(78, 69, 75, 0.74);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.custom-popupTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.custom-popupRow th,
+.custom-popupRow td {
+  padding: 7px 8px;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.custom-popupRow:last-child th,
+.custom-popupRow:last-child td {
+  border-bottom: none;
+}
+
+.custom-popupKey {
+  width: 38%;
+  text-align: left;
+}
+
+.custom-popupLabel {
+  display: block;
+  color: rgba(78, 69, 75, 0.84);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.custom-popupField {
+  display: block;
+  margin-top: 3px;
+  color: rgba(78, 69, 75, 0.46);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.custom-popupValue {
+  color: rgba(78, 69, 75, 0.92);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 /* Responsive */

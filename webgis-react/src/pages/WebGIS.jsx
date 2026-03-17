@@ -27,7 +27,7 @@ import PainelCamadas from '../components/PainelCamadas';
 import PainelFontesCamadas from '../components/PainelFontesCamadas';
 import PainelAjuda from '../components/PainelAjuda';
 
-import { getEstiloCamada } from '../utils/estiloCamadas';
+import { aplicarPadraoCamada, getEstiloCamada } from '../utils/estiloCamadas';
 import formatarPopupAtributos from '../utils/formatarPopupAtributos';
 
 import * as toGeoJSON from '@tmcw/togeojson';
@@ -36,6 +36,7 @@ import shp from 'shpjs';
 import CoordenadasBox from '../components/CoordenadasBox';
 import WfsBboxLayer from "../components/WfsBboxLayer";
 import ExternalWmsLayer from "../components/ExternalWmsLayer";
+import WmsFeatureInfoOverlay from "../components/WmsFeatureInfoOverlay";
 import ArcgisFeatureLayer from "../components/ArcgisFeatureLayer";
 import camadasExternasFallback from "../config/camadasExternasFallback";
 import config from "../config";
@@ -189,6 +190,7 @@ export default function WebGIS() {
   const montarCamadasExternas = (externas) => externas.map(c => ({
     nome: montarNomeCamadaExterna(c),
     typeName: c.typeName,
+    wmsLayers: c.wmsLayers ?? c.typeName,
     titulo: c.titulo,
     data: null,
     visivel: false,
@@ -200,11 +202,15 @@ export default function WebGIS() {
     wfsBaseUrl: c.wfs,
     wfsParams: c.wfsParams ?? {},
     wfsVersion: c.wfsVersion ?? '2.0.0',
+    wfsPageSize: c.wfsPageSize ?? null,
+    wfsMaxPages: c.wfsMaxPages ?? 1,
     bboxAxisOrder: c.bboxAxisOrder ?? 'lonlat',
     arcgisQueryUrl: c.arcgisQueryUrl,
     arcgisParams: c.arcgisParams ?? {},
     wmsBaseUrl: c.wms,
     wmsParams: c.wmsParams ?? {},
+    opacity: c.opacity ?? 1,
+    identifyEnabled: c.identifyEnabled ?? false,
     analysisWfsBaseUrl: c.analysisWfsBaseUrl,
     analysisTypeName: c.analysisTypeName,
     analysisWfsVersion: c.analysisWfsVersion ?? '2.0.0',
@@ -233,12 +239,28 @@ export default function WebGIS() {
     return [...internas, ...externasAtualizadas, ...novasExternas];
   };
 
-  const handleEachFeature = (feature, layer) => {
+  const obterNomeReferenciaCamada = (camada) => {
+    if (!camada) {
+      return '';
+    }
+
+    return camada.titulo || (camada.nome.includes(':')
+      ? camada.nome.split(':')[1]
+      : camada.nome);
+  };
+
+  const criarStyleCamada = (nomeReferencia) => () =>
+    getEstiloCamada(String(nomeReferencia || '').toUpperCase());
+
+  const criarHandleEachFeature = (nomeReferencia) => (feature, layer) => {
     const popupHtml = formatarPopupAtributos(feature);
+    const estilo = getEstiloCamada(String(nomeReferencia || '').toUpperCase());
 
     if (popupHtml) {
       layer.bindPopup(popupHtml, { maxWidth: 460 });
     }
+
+    aplicarPadraoCamada(layer, estilo, layer._map);
   };
   useEffect(() => {
 
@@ -291,7 +313,9 @@ export default function WebGIS() {
 
           setCamadas((old) => anexarCamadasExternas(old, camadasExternas));
         } catch (errExternas) {
-          console.warn('Nao foi possivel carregar as camadas externas no momento:', errExternas);
+          if (errExternas?.name !== 'AbortError') {
+            console.warn('Nao foi possivel carregar as camadas externas no momento:', errExternas);
+          }
         } finally {
           clearTimeout(timeoutId);
         }
@@ -341,7 +365,9 @@ export default function WebGIS() {
 
           setCamadas((old) => anexarCamadasExternas(old, camadasExternas));
         } catch (errExternas) {
-          console.warn("Nao foi possivel carregar as camadas externas no momento:", errExternas);
+          if (errExternas?.name !== "AbortError") {
+            console.warn("Nao foi possivel carregar as camadas externas no momento:", errExternas);
+          }
         } finally {
           clearTimeout(timeoutId);
         }
@@ -753,15 +779,18 @@ export default function WebGIS() {
                 key={c.nome}
                 baseUrl={`${config.API_BASE_URL}/proxy/wms`}
                 url={c.wmsBaseUrl}
-                layers={c.nome}
+                layers={c.wmsLayers || c.typeName || c.nome}
                 visivel={c.visivel}
                 minZoom={c.minZoom}
+                opacity={c.opacity}
                 params={c.wmsParams}
               />
             );
           }
 
           if (c.externa && c.sourceType === 'arcgis-feature') {
+            const nomeReferencia = obterNomeReferenciaCamada(c);
+
             return (
               <ArcgisFeatureLayer
                 key={c.nome}
@@ -770,18 +799,14 @@ export default function WebGIS() {
                 visivel={c.visivel}
                 minZoom={c.minZoom}
                 queryParams={c.arcgisParams}
-                onEachFeature={handleEachFeature}
-                style={() => {
-                  const nomeReferencia = c.titulo || c.nome;
-
-                  return getEstiloCamada(nomeReferencia.toUpperCase());
-
-                }}
+                onEachFeature={criarHandleEachFeature(nomeReferencia)}
+                style={criarStyleCamada(nomeReferencia)}
               />
             );
           }
 
           if (c.externa) {
+            const nomeReferencia = obterNomeReferenciaCamada(c);
 
             return (
 
@@ -794,43 +819,37 @@ export default function WebGIS() {
                 minZoom={c.minZoom}
                 wfsParams={c.wfsParams}
                 wfsVersion={c.wfsVersion}
+                wfsPageSize={c.wfsPageSize}
+                wfsMaxPages={c.wfsMaxPages}
                 bboxAxisOrder={c.bboxAxisOrder}
                 featureFilter={c.featureFilter}
-                onEachFeature={handleEachFeature}
-                style={() => {
-                  const nomeReferencia = c.titulo || (c.nome.includes(':')
-                    ? c.nome.split(':')[1]
-                    : c.nome);
-
-                  return getEstiloCamada(nomeReferencia.toUpperCase());
-
-                }}
+                onEachFeature={criarHandleEachFeature(nomeReferencia)}
+                style={criarStyleCamada(nomeReferencia)}
               />
 
             );
 
           }
 
+          const nomeReferencia = obterNomeReferenciaCamada(c);
+
           return c.visivel ? (
 
             <GeoJSON
               key={c.nome}
               data={c.data}
-              onEachFeature={handleEachFeature}
-              style={() => {
-
-                const nomeLimpo = c.nome.includes(':')
-                  ? c.nome.split(':')[1]
-                  : c.nome;
-
-                return getEstiloCamada(nomeLimpo.toUpperCase());
-
-              }}
+              onEachFeature={criarHandleEachFeature(nomeReferencia)}
+              style={criarStyleCamada(nomeReferencia)}
             />
 
           ) : null;
 
         })}
+
+        <WmsFeatureInfoOverlay
+          camadas={camadas}
+          proxyBaseUrl={`${config.API_BASE_URL}/proxy/wms`}
+        />
 
 
         <FeatureGroup ref={drawnItemsRef} />

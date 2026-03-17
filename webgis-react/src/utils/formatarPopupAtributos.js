@@ -19,6 +19,28 @@ function formatarValorAtributo(valor) {
   return escapeHtml(valor);
 }
 
+function formatarRotuloAtributo(chave) {
+  const texto = String(chave || "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .trim();
+
+  if (!texto) {
+    return "";
+  }
+
+  return texto
+    .split(/\s+/)
+    .map((parte) => {
+      if (parte.length <= 3 && parte === parte.toUpperCase()) {
+        return parte;
+      }
+
+      return parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
 function extrairAtributos(item) {
   if (!item) {
     return {};
@@ -50,11 +72,12 @@ export default function formatarPopupAtributos(item) {
   const linhas = entradas
     .map(
       ([chave, valor]) => `
-        <tr>
-          <th style="text-align:left; padding:6px 10px; vertical-align:top; border-bottom:1px solid rgba(15,23,42,.08);">
-            ${escapeHtml(chave)}
+        <tr class="custom-popupRow">
+          <th class="custom-popupKey">
+            <span class="custom-popupLabel">${escapeHtml(formatarRotuloAtributo(chave))}</span>
+            <span class="custom-popupField">${escapeHtml(chave)}</span>
           </th>
-          <td style="padding:6px 10px; border-bottom:1px solid rgba(15,23,42,.08);">
+          <td class="custom-popupValue">
             ${formatarValorAtributo(valor)}
           </td>
         </tr>
@@ -64,7 +87,8 @@ export default function formatarPopupAtributos(item) {
 
   return `
     <div class="custom-popup">
-      <table style="border-collapse:collapse; min-width:280px; max-width:420px;">
+      <div class="custom-popupHeader">Detalhes da Feicao</div>
+      <table class="custom-popupTable">
         <tbody>${linhas}</tbody>
       </table>
     </div>

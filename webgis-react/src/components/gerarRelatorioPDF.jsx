@@ -6,6 +6,7 @@ const PAGE_WIDTH = 210;
 const PAGE_HEIGHT = 297;
 const MARGIN_X = 16;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2;
+const HEADER_HEIGHT = 28;
 
 function normalizarTexto(valor) {
   return String(valor ?? "")
@@ -15,23 +16,30 @@ function normalizarTexto(valor) {
 
 function desenharCabecalho(doc, subtitulo) {
   doc.setFillColor(10, 43, 54);
-  doc.rect(0, 0, PAGE_WIDTH, 28, "F");
+  doc.rect(0, 0, PAGE_WIDTH, HEADER_HEIGHT, "F");
 
-  doc.setFillColor(35, 92, 107);
-  doc.roundedRect(MARGIN_X, 8, 54, 8, 4, 4, "F");
+  doc.setFillColor(41, 108, 126);
+  doc.roundedRect(MARGIN_X, 7.8, 54, 7.2, 3.6, 3.6, "F");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(9.4);
   doc.setTextColor(233, 244, 239);
-  doc.text("ANALISE AMBIENTAL", MARGIN_X + 27, 13.3, { align: "center" });
+  doc.text("ANALISE AMBIENTAL", MARGIN_X + 27, 12.8, { align: "center" });
 
-  doc.setFontSize(17);
-  doc.text("Relatorio de Sobreposicao", MARGIN_X, 23);
+  doc.setFontSize(16);
+  doc.text("Relatorio de Sobreposicao", MARGIN_X, 22.4);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
+  const subtituloLinhas = doc.splitTextToSize(normalizarTexto(subtitulo), 74);
+  const subtituloYInicial = 14.3 - ((subtituloLinhas.length - 1) * 3.2) / 2;
+
+  doc.setFont("courier", "normal");
+  doc.setFontSize(7.8);
   doc.setTextColor(210, 226, 220);
-  doc.text(subtitulo, PAGE_WIDTH - MARGIN_X, 23, { align: "right" });
+  subtituloLinhas.forEach((linha, index) => {
+    doc.text(linha, PAGE_WIDTH - MARGIN_X, subtituloYInicial + index * 3.2, {
+      align: "right",
+    });
+  });
 }
 
 function desenharRodape(doc, paginaAtual, totalPaginas, dataHoje) {
@@ -48,22 +56,22 @@ function desenharRodape(doc, paginaAtual, totalPaginas, dataHoje) {
 }
 
 function desenharCardResumo(doc, x, y, largura, altura, titulo, valor, corRgb) {
-  doc.setFillColor(247, 250, 248);
-  doc.setDrawColor(222, 231, 227);
-  doc.roundedRect(x, y, largura, altura, 5, 5, "FD");
+  doc.setFillColor(248, 250, 249);
+  doc.setDrawColor(226, 234, 230);
+  doc.roundedRect(x, y, largura, altura, 3.2, 3.2, "FD");
 
   doc.setFillColor(...corRgb);
-  doc.circle(x + 10, y + 10, 2.4, "F");
+  doc.circle(x + 6.6, y + 6.1, 1.5, "F");
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
+  doc.setFontSize(11.5);
   doc.setTextColor(16, 35, 38);
-  doc.text(String(valor), x + 8, y + 22);
+  doc.text(String(valor), x + 6.4, y + 12.9);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
+  doc.setFontSize(7.4);
   doc.setTextColor(89, 103, 99);
-  doc.text(titulo, x + 8, y + 30);
+  doc.text(titulo, x + 6.4, y + 18.1);
 }
 
 function desenharTabelaHeader(doc, y) {
@@ -81,9 +89,21 @@ function desenharLinhaResultado(doc, y, resultado, indice) {
   const camadaLinhas = doc.splitTextToSize(normalizarTexto(resultado.camada), 118);
   const alturaLinha = Math.max(11, camadaLinhas.length * 5 + 4);
   const fundo = indice % 2 === 0 ? [250, 252, 251] : [243, 247, 245];
-  const statusTexto = resultado.sobreposicao ? "Com sobreposicao" : "Sem sobreposicao";
-  const statusCor = resultado.sobreposicao ? [176, 52, 52] : [33, 115, 74];
-  const statusBg = resultado.sobreposicao ? [254, 240, 240] : [236, 248, 240];
+  const statusTexto = resultado.erroConsulta
+    ? "Nao verificada"
+    : resultado.sobreposicao
+      ? "Com sobreposicao"
+      : "Sem sobreposicao";
+  const statusCor = resultado.erroConsulta
+    ? [160, 102, 24]
+    : resultado.sobreposicao
+      ? [176, 52, 52]
+      : [33, 115, 74];
+  const statusBg = resultado.erroConsulta
+    ? [255, 246, 230]
+    : resultado.sobreposicao
+      ? [254, 240, 240]
+      : [236, 248, 240];
 
   doc.setFillColor(...fundo);
   doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, alturaLinha, 3, 3, "F");
@@ -230,35 +250,49 @@ export default async function gerarRelatorioPDF({
   const dataHoje = new Date().toLocaleDateString("pt-BR");
   const codigo = normalizarTexto(codigoCAR || "sem_codigo");
   const resultadosOrdenados = [...(resultados || [])].sort((a, b) => {
-    if (a.sobreposicao === b.sobreposicao) return a.camada.localeCompare(b.camada);
-    return a.sobreposicao ? -1 : 1;
+    const prioridade = (item) => {
+      if (item.sobreposicao) return 0;
+      if (item.erroConsulta) return 1;
+      return 2;
+    };
+
+    const diferencaPrioridade = prioridade(a) - prioridade(b);
+    if (diferencaPrioridade !== 0) return diferencaPrioridade;
+    return a.camada.localeCompare(b.camada);
   });
 
   const totalCamadas = resultadosOrdenados.length;
   const totalSobrepostas = resultadosOrdenados.filter((item) => item.sobreposicao).length;
-  const totalSemSobreposicao = totalCamadas - totalSobrepostas;
+  const totalNaoVerificadas = resultadosOrdenados.filter((item) => item.erroConsulta).length;
+  const totalSemSobreposicao = totalCamadas - totalSobrepostas - totalNaoVerificadas;
+  const codigoTitulo = `CAR ${codigo}`;
 
-  desenharCabecalho(doc, `CAR ${codigo}`);
+  desenharCabecalho(doc, codigoTitulo);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(74, 88, 85);
-  doc.text("Area analisada", MARGIN_X, 40);
+  doc.setFontSize(9.5);
+  doc.setTextColor(86, 101, 97);
+  doc.text("Area analisada", MARGIN_X, 40.5);
+
+  const codigoLinhas = doc.splitTextToSize(`Codigo ${codigoTitulo}`, CONTENT_WIDTH);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
+  doc.setFontSize(14.5);
   doc.setTextColor(16, 35, 38);
-  doc.text(`Codigo CAR ${codigo}`, MARGIN_X, 48);
+  doc.text(codigoLinhas, MARGIN_X, 47.5);
+
+  const blocoCodigoAltura = codigoLinhas.length * 5.5;
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setTextColor(74, 88, 85);
-  doc.text(`Data da analise: ${dataHoje}`, MARGIN_X, 55);
+  doc.text(`Data da analise: ${dataHoje}`, MARGIN_X, 47.5 + blocoCodigoAltura + 2.5);
 
-  const cardY = 64;
-  const cardGap = 6;
+  const cardY = 47.5 + blocoCodigoAltura + 9;
+  const cardGap = 3;
   const cardWidth = (CONTENT_WIDTH - cardGap * 2) / 3;
-  desenharCardResumo(doc, MARGIN_X, cardY, cardWidth, 36, "Camadas verificadas", totalCamadas, [
+  const cardHeight = 20.5;
+  desenharCardResumo(doc, MARGIN_X, cardY, cardWidth, cardHeight, "Camadas verificadas", totalCamadas, [
     52, 127, 106,
   ]);
   desenharCardResumo(
@@ -266,7 +300,7 @@ export default async function gerarRelatorioPDF({
     MARGIN_X + cardWidth + cardGap,
     cardY,
     cardWidth,
-    36,
+    cardHeight,
     "Com sobreposicao",
     totalSobrepostas,
     [176, 52, 52]
@@ -276,7 +310,7 @@ export default async function gerarRelatorioPDF({
     MARGIN_X + (cardWidth + cardGap) * 2,
     cardY,
     cardWidth,
-    36,
+    cardHeight,
     "Sem sobreposicao",
     totalSemSobreposicao,
     [33, 115, 74]
@@ -285,7 +319,8 @@ export default async function gerarRelatorioPDF({
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(16, 35, 38);
-  doc.text("Resultado consolidado", MARGIN_X, 112);
+  const resultadoHeaderY = cardY + cardHeight + 16;
+  doc.text("Resultado consolidado", MARGIN_X, resultadoHeaderY);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
@@ -293,10 +328,19 @@ export default async function gerarRelatorioPDF({
   doc.text(
     "As camadas com sobreposicao foram priorizadas no topo da tabela para facilitar a triagem tecnica.",
     MARGIN_X,
-    118
+    resultadoHeaderY + 6
   );
 
-  let y = 126;
+  if (totalNaoVerificadas > 0) {
+    doc.setTextColor(160, 102, 24);
+    doc.text(
+      `${totalNaoVerificadas} camada(s) nao puderam ser verificadas por indisponibilidade ou erro de consulta.`,
+      MARGIN_X,
+      resultadoHeaderY + 12
+    );
+  }
+
+  let y = totalNaoVerificadas > 0 ? resultadoHeaderY + 20 : resultadoHeaderY + 14;
   desenharTabelaHeader(doc, y);
   y += 13;
 

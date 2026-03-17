@@ -55,6 +55,8 @@ function criarCamadasImoveis(estados, temaPrefixo, subgrupoExterno) {
     titulo: nomeEstado,
     typeName: `${temaPrefixo}_${uf.toLowerCase()}`,
     wms: `http://acervofundiario.incra.gov.br/i3geo/ogc.php?tema=${temaPrefixo}_${uf.toLowerCase()}`,
+    identifyEnabled: true,
+    opacity: 0.42,
     minZoom: 7,
     sourceType: "wms",
     grupoExterno: "Imoveis",

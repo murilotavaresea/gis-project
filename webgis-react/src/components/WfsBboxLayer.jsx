@@ -22,6 +22,8 @@ export default function WfsBboxLayer({
   wfsVersion = "2.0.0",
   bboxAxisOrder = "lonlat",
   featureFilter = null,
+  wfsPageSize = null,
+  wfsMaxPages = 1,
 }) {
   const map = useMap();
   const [data, setData] = useState(null);
@@ -84,49 +86,102 @@ export default function WfsBboxLayer({
     abortRef.current = new AbortController();
 
     const typeParamName = String(wfsVersion).startsWith("2.") ? "typenames" : "typeName";
-    const query = new URLSearchParams({
-      base: wfsBaseUrl,
-      service: "WFS",
-      version: wfsVersion,
-      request: "GetFeature",
-      outputFormat: "application/json",
-      srsName: "EPSG:4326",
-      bbox,
-    });
-    query.set(typeParamName, typeName);
+    const maxParamName = String(wfsVersion).startsWith("2.") ? "count" : "maxFeatures";
 
-    Object.entries(wfsParams).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        query.set(key, String(value));
+    const buildQuery = (pageIndex = 0) => {
+      const query = new URLSearchParams({
+        base: wfsBaseUrl,
+        service: "WFS",
+        version: wfsVersion,
+        request: "GetFeature",
+        outputFormat: "application/json",
+        srsName: "EPSG:4326",
+        bbox,
+      });
+
+      query.set(typeParamName, typeName);
+
+      Object.entries(wfsParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          query.set(key, String(value));
+        }
+      });
+
+      if (wfsPageSize) {
+        query.set(maxParamName, String(wfsPageSize));
+        query.set("startIndex", String(pageIndex * wfsPageSize));
       }
-    });
 
-    const url = `${baseUrl}?${query.toString()}`;
+      return query;
+    };
 
     try {
-      const { response: res, text } = await fetchWithRetry(
-        url,
-        { signal: abortRef.current.signal },
-        1
-      );
+      const totalPages = Math.max(1, wfsPageSize ? wfsMaxPages : 1);
+      let allFeatures = [];
+      let collectionType = "FeatureCollection";
 
-      if (!res.ok) {
-        console.warn(`WFS retornou status ${res.status} para ${typeName}.`, text.slice(0, 200));
-        setData(null);
-        return;
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1) {
+        const url = `${baseUrl}?${buildQuery(pageIndex).toString()}`;
+        const { response: res, text } = await fetchWithRetry(
+          url,
+          { signal: abortRef.current.signal },
+          1
+        );
+
+        if (!res.ok) {
+          console.warn(
+            `WFS retornou status ${res.status} para ${typeName}.`,
+            {
+              proxyTransform: res.headers.get("X-Proxy-Transform"),
+              featureCount: res.headers.get("X-Feature-Count"),
+              contentType: res.headers.get("Content-Type"),
+              body: text.slice(0, 400),
+            }
+          );
+          setData(null);
+          return;
+        }
+
+        if (text.trim().startsWith("<")) {
+          console.warn(
+            `WFS retornou XML para ${typeName}.`,
+            {
+              proxyTransform: res.headers.get("X-Proxy-Transform"),
+              featureCount: res.headers.get("X-Feature-Count"),
+              contentType: res.headers.get("Content-Type"),
+              body: text.slice(0, 400),
+            }
+          );
+          setData(null);
+          return;
+        }
+
+        const json = JSON.parse(text);
+        const filteredJson = filtrarFeatureCollection(json, featureFilter);
+        const pageFeatures = filteredJson?.features || [];
+
+        console.info(`WFS carregado para ${typeName}.`, {
+          pageIndex,
+          pageFeatures: pageFeatures.length,
+          proxyTransform: res.headers.get("X-Proxy-Transform"),
+          featureCount: res.headers.get("X-Feature-Count"),
+        });
+
+        collectionType = filteredJson?.type || collectionType;
+        allFeatures = [...allFeatures, ...pageFeatures];
+
+        setData({
+          type: collectionType,
+          features: allFeatures,
+        });
+        setRenderVersion((prev) => prev + 1);
+
+        if (!wfsPageSize || pageFeatures.length < wfsPageSize) {
+          break;
+        }
       }
 
-      if (text.trim().startsWith("<")) {
-        console.warn(`WFS retornou XML para ${typeName}.`, text.slice(0, 200));
-        setData(null);
-        return;
-      }
-
-      const json = JSON.parse(text);
-      const filteredJson = filtrarFeatureCollection(json, featureFilter);
       lastBboxRef.current = bbox;
-      setData(filteredJson);
-      setRenderVersion((prev) => prev + 1);
     } catch (err) {
       if (err.name === "AbortError") return;
       console.warn(`Erro ao carregar WFS por BBOX para ${typeName}:`, err);
@@ -163,6 +218,8 @@ export default function WfsBboxLayer({
     wfsVersion,
     bboxAxisOrder,
     featureFilter,
+    wfsPageSize,
+    wfsMaxPages,
   ]);
 
   if (!visivel || !data) return null;

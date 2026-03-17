@@ -1,10 +1,22 @@
 const BASE_STYLE = {
-  weight: 1.35,
-  opacity: 0.92,
-  fillOpacity: 0.1,
+  weight: 1.7,
+  opacity: 0.98,
+  fillOpacity: 0.18,
   lineCap: "round",
   lineJoin: "round",
 };
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function createSvgNode(tagName, attributes = {}) {
+  const node = document.createElementNS(SVG_NS, tagName);
+
+  Object.entries(attributes).forEach(([key, value]) => {
+    node.setAttribute(key, String(value));
+  });
+
+  return node;
+}
 
 function criarEstilo({
   color,
@@ -14,6 +26,7 @@ function criarEstilo({
   opacity = BASE_STYLE.opacity,
   dashArray,
   fill = true,
+  fillPattern = null,
 }) {
   return {
     ...BASE_STYLE,
@@ -23,6 +36,7 @@ function criarEstilo({
     opacity,
     fill,
     fillOpacity: fill ? fillOpacity : 0,
+    fillPattern,
     ...(dashArray ? { dashArray } : {}),
   };
 }
@@ -40,20 +54,141 @@ function hashString(value = "") {
 function gerarEstiloUnico(nome) {
   const hash = hashString(nome);
   const hue = hash % 360;
-  const saturation = 38 + (hash % 18);
-  const lightness = 34 + (hash % 10);
-  const fillLightness = Math.min(lightness + 28, 78);
-  const weight = 1.1 + ((hash % 4) * 0.12);
+  const saturation = 58 + (hash % 20);
+  const lightness = 34 + (hash % 8);
+  const fillLightness = Math.min(lightness + 16, 68);
+  const weight = 1.45 + ((hash % 4) * 0.14);
   const dashOptions = [undefined, "4 3", "2 5", "7 3"];
   const dashArray = dashOptions[hash % dashOptions.length];
 
   return criarEstilo({
     color: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-    fillColor: `hsl(${hue}, ${Math.max(saturation - 8, 28)}%, ${fillLightness}%)`,
+    fillColor: `hsl(${hue}, ${Math.max(saturation - 6, 46)}%, ${fillLightness}%)`,
     weight,
-    fillOpacity: 0.07,
+    fillOpacity: 0.18,
     dashArray,
   });
+}
+
+function getPatternDefinitions() {
+  return {
+    "pattern-embargo-ibama": {
+      width: 10,
+      height: 10,
+      nodes: [
+        createSvgNode("rect", {
+          width: 10,
+          height: 10,
+          fill: "rgba(255, 166, 138, 0.16)",
+        }),
+        createSvgNode("path", {
+          d: "M-2,10 L10,-2 M0,12 L12,0 M6,12 L12,6",
+          stroke: "#ff6b57",
+          "stroke-width": 1.6,
+          "stroke-linecap": "round",
+          opacity: 0.9,
+        }),
+      ],
+    },
+    "pattern-prodes-amazonia": {
+      width: 12,
+      height: 12,
+      nodes: [
+        createSvgNode("rect", {
+          width: 12,
+          height: 12,
+          fill: "rgba(255, 207, 113, 0.14)",
+        }),
+        createSvgNode("path", {
+          d: "M-2,12 L12,-2 M2,14 L14,2",
+          stroke: "#ffb347",
+          "stroke-width": 1.4,
+          "stroke-linecap": "round",
+          opacity: 0.95,
+        }),
+      ],
+    },
+    "pattern-prodes-cerrado": {
+      width: 12,
+      height: 12,
+      nodes: [
+        createSvgNode("rect", {
+          width: 12,
+          height: 12,
+          fill: "rgba(246, 223, 92, 0.14)",
+        }),
+        createSvgNode("path", {
+          d: "M0,0 L12,12 M-2,6 L6,14 M6,-2 L14,6",
+          stroke: "#e4c441",
+          "stroke-width": 1.3,
+          "stroke-linecap": "round",
+          opacity: 0.92,
+        }),
+      ],
+    },
+  };
+}
+
+function ensureMapPatternDefs(map) {
+  const overlayPane = map?.getPanes?.()?.overlayPane;
+  const svg = overlayPane?.querySelector?.("svg");
+
+  if (!svg) {
+    return null;
+  }
+
+  let defs = svg.querySelector("defs[data-webgis-patterns='true']");
+  if (!defs) {
+    defs = createSvgNode("defs", { "data-webgis-patterns": "true" });
+    svg.insertBefore(defs, svg.firstChild);
+  }
+
+  const patternDefinitions = getPatternDefinitions();
+
+  Object.entries(patternDefinitions).forEach(([patternId, definition]) => {
+    if (defs.querySelector(`#${patternId}`)) {
+      return;
+    }
+
+    const patternNode = createSvgNode("pattern", {
+      id: patternId,
+      patternUnits: "userSpaceOnUse",
+      width: definition.width,
+      height: definition.height,
+    });
+
+    definition.nodes.forEach((node) => {
+      patternNode.appendChild(node);
+    });
+
+    defs.appendChild(patternNode);
+  });
+
+  return defs;
+}
+
+export function aplicarPadraoCamada(layer, estilo, map) {
+  if (!estilo?.fillPattern || !layer?.getElement || !map) {
+    return;
+  }
+
+  const applyPattern = () => {
+    const path = layer.getElement();
+
+    if (!path) {
+      return;
+    }
+
+    if (!ensureMapPatternDefs(map)) {
+      return;
+    }
+
+    path.setAttribute("fill", `url(#${estilo.fillPattern})`);
+    path.setAttribute("fill-opacity", "1");
+  };
+
+  requestAnimationFrame(applyPattern);
+  layer.on("add", () => requestAnimationFrame(applyPattern));
 }
 
 export function getEstiloCamada(nome = "") {
@@ -65,9 +200,9 @@ export function getEstiloCamada(nome = "") {
     nomeUpper.includes("MUNICIPIOS")
   ) {
     return criarEstilo({
-      color: "#6b7a8f",
-      weight: 1.05,
-      opacity: 0.88,
+      color: "#d5e7ff",
+      weight: 1.35,
+      opacity: 0.96,
       dashArray: "3 4",
       fill: false,
     });
@@ -75,88 +210,91 @@ export function getEstiloCamada(nome = "") {
 
   if (nomeUpper.includes("EMBARGO") && nomeUpper.includes("IBAMA")) {
     return criarEstilo({
-      color: "#a14a3b",
-      fillColor: "#d9a79d",
-      weight: 1.45,
-      fillOpacity: 0.05,
-      dashArray: "6 4",
+      color: "#ff6b57",
+      fillColor: "#ffb09f",
+      weight: 1.9,
+      fillOpacity: 0.22,
+      dashArray: "7 4",
+      fillPattern: "pattern-embargo-ibama",
     });
   }
 
   if (nomeUpper.includes("PRODES") && nomeUpper.includes("AMAZONIA")) {
     return criarEstilo({
-      color: "#a65f2a",
-      fillColor: "#d8b08c",
-      weight: 1.4,
-      fillOpacity: 0.08,
-      dashArray: "5 3",
+      color: "#ffb347",
+      fillColor: "#ffd08f",
+      weight: 1.85,
+      fillOpacity: 0.2,
+      dashArray: "6 3",
+      fillPattern: "pattern-prodes-amazonia",
     });
   }
 
   if (nomeUpper.includes("PRODES") && nomeUpper.includes("CERRADO")) {
     return criarEstilo({
-      color: "#8f7a2a",
-      fillColor: "#d7cb8e",
-      weight: 1.3,
-      fillOpacity: 0.08,
-      dashArray: "2 5",
+      color: "#f2d14e",
+      fillColor: "#fff0a6",
+      weight: 1.8,
+      fillOpacity: 0.2,
+      dashArray: "3 4",
+      fillPattern: "pattern-prodes-cerrado",
     });
   }
 
   if (nomeUpper.includes("MAPBIOMAS")) {
     return criarEstilo({
-      color: "#3c8a77",
-      fillColor: "#9ecfc0",
-      weight: 1.25,
-      fillOpacity: 0.08,
+      color: "#20c997",
+      fillColor: "#8ae6cb",
+      weight: 1.7,
+      fillOpacity: 0.18,
     });
   }
 
   if (nomeUpper.includes("APF")) {
     return criarEstilo({
-      color: "#476c9b",
-      fillColor: "#a9bddb",
-      weight: 1.3,
-      fillOpacity: 0.08,
-      dashArray: "7 2",
+      color: "#58a6ff",
+      fillColor: "#9fd0ff",
+      weight: 1.75,
+      fillOpacity: 0.18,
+      dashArray: "8 3",
     });
   }
 
   if (nomeUpper.includes("SITIOS ARQUEOLOGICOS") || nomeUpper.includes("IPHAN")) {
     return criarEstilo({
-      color: "#8b6b4b",
-      fillColor: "#d9c3a3",
-      weight: 1.25,
-      fillOpacity: 0.06,
-      dashArray: "1 4",
+      color: "#f1a95f",
+      fillColor: "#ffd59f",
+      weight: 1.6,
+      fillOpacity: 0.17,
+      dashArray: "2 5",
     });
   }
 
   if (nomeUpper.includes("ASSENTAMENTO")) {
     return criarEstilo({
-      color: "#5d8f46",
-      fillColor: "#b9d4a7",
-      weight: 1.3,
-      fillOpacity: 0.08,
+      color: "#7ed957",
+      fillColor: "#b7f18a",
+      weight: 1.75,
+      fillOpacity: 0.18,
     });
   }
 
   if (nomeUpper.includes("QUILOMBOLA")) {
     return criarEstilo({
-      color: "#7a5a8f",
-      fillColor: "#c8b7d5",
-      weight: 1.3,
-      fillOpacity: 0.08,
+      color: "#c17aff",
+      fillColor: "#e0b6ff",
+      weight: 1.7,
+      fillOpacity: 0.18,
       dashArray: "4 4",
     });
   }
 
   if (nomeUpper.includes("TERRAS INDIGENAS")) {
     return criarEstilo({
-      color: "#b24c5c",
-      fillColor: "#e0a8b1",
-      weight: 1.35,
-      fillOpacity: 0.08,
+      color: "#ff5f7a",
+      fillColor: "#ffb0c0",
+      weight: 1.8,
+      fillOpacity: 0.18,
     });
   }
 
@@ -165,20 +303,20 @@ export function getEstiloCamada(nome = "") {
     nomeUpper.includes("UNIDADES DE CONSERVACAO")
   ) {
     return criarEstilo({
-      color: "#4d7d5c",
-      fillColor: "#afd0b5",
-      weight: 1.28,
-      fillOpacity: 0.07,
-      dashArray: "8 3",
+      color: "#5fda84",
+      fillColor: "#a6f0bd",
+      weight: 1.7,
+      fillOpacity: 0.17,
+      dashArray: "8 4",
     });
   }
 
   if (nomeUpper.includes("FLORESTAS PUBLICAS") || nomeUpper.includes("CNFP")) {
     return criarEstilo({
-      color: "#416f52",
-      fillColor: "#a9c9af",
-      weight: 1.25,
-      fillOpacity: 0.07,
+      color: "#33c46f",
+      fillColor: "#9ef0ba",
+      weight: 1.65,
+      fillOpacity: 0.17,
       dashArray: "3 5",
     });
   }

@@ -7,6 +7,7 @@ import config from "../config";
 
 const GEOSERVER_BASE = config.GEOSERVER_BASE_URL;
 const PROXY_WFS_BASE = config.PROXY_WFS_BASE_URL;
+const MIN_INTERSECTION_AREA_M2 = 1;
 
 function formatarNomeCamada(camada) {
   if (camada?.titulo) {
@@ -113,6 +114,65 @@ function montarUrlConsulta(camada, bbox) {
   );
 }
 
+function isPolygonalGeometry(feature) {
+  const geometryType = feature?.geometry?.type || "";
+  return geometryType === "Polygon" || geometryType === "MultiPolygon";
+}
+
+function normalizarAreaAnalise(geojson) {
+  const features = geojson?.type === "FeatureCollection" ? geojson.features : [geojson];
+  const featuresValidas = (features || []).filter((feature) => feature?.geometry);
+
+  if (!featuresValidas.length) {
+    return null;
+  }
+
+  if (featuresValidas.length === 1) {
+    return featuresValidas[0];
+  }
+
+  const colecao = turf.featureCollection(featuresValidas);
+  const uniao = turf.union(colecao);
+
+  if (uniao?.geometry) {
+    return {
+      ...uniao,
+      properties: {
+        ...(featuresValidas[0]?.properties || {}),
+      },
+    };
+  }
+
+  return featuresValidas[0];
+}
+
+function possuiSobreposicaoReal(areaFeature, feature) {
+  if (!areaFeature?.geometry || !feature?.geometry) {
+    return false;
+  }
+
+  const areaPoligonal = isPolygonalGeometry(areaFeature);
+  const featurePoligonal = isPolygonalGeometry(feature);
+
+  if (areaPoligonal && featurePoligonal) {
+    try {
+      const intersecao = turf.intersect(
+        turf.featureCollection([areaFeature, feature])
+      );
+
+      if (!intersecao?.geometry) {
+        return false;
+      }
+
+      return turf.area(intersecao) > MIN_INTERSECTION_AREA_M2;
+    } catch (error) {
+      console.warn("Falha ao calcular area de intersecao; usando intersects como fallback.", error);
+    }
+  }
+
+  return turf.booleanIntersects(areaFeature, feature);
+}
+
 export default function VerificarSobreposicao({
   carLayerBusca,
   camadas,
@@ -128,14 +188,12 @@ export default function VerificarSobreposicao({
     }
 
     const geojson = carLayerBusca.toGeoJSON();
-    const features = geojson.type === "FeatureCollection" ? geojson.features : [geojson];
+    const areaFeature = normalizarAreaAnalise(geojson);
 
-    if (!features.length || !features[0].geometry) {
+    if (!areaFeature?.geometry) {
       alert("Geometria invalida ou ausente no CAR.");
       return;
     }
-
-    const areaFeature = features[0];
 
     let buffer;
     try {
@@ -176,7 +234,7 @@ export default function VerificarSobreposicao({
         );
 
         const featuresSobrepostas = (data.features || []).filter((feature) =>
-          turf.booleanIntersects(areaFeature, feature)
+          possuiSobreposicaoReal(areaFeature, feature)
         );
         const intersecta = featuresSobrepostas.length > 0;
 
@@ -199,19 +257,21 @@ export default function VerificarSobreposicao({
         resultados.push({
           camada: nomeFormatado,
           sobreposicao: !!intersecta,
+          erroConsulta: false,
         });
       } catch (error) {
         console.warn(`Erro ao buscar ou processar camada ${nomeFormatado}:`, error);
         resultados.push({
           camada: nomeFormatado,
           sobreposicao: false,
+          erroConsulta: true,
         });
       }
     }
 
     if (onAtualizarMapaRelatorio) {
       onAtualizarMapaRelatorio({
-        areaGeoJSON: carLayerBusca.toGeoJSON(),
+        areaGeoJSON: areaFeature,
         overlayLayers: camadasSobrepostasMapa,
       });
 
@@ -223,7 +283,7 @@ export default function VerificarSobreposicao({
       resultados,
       overlayLayers: camadasSobrepostasMapa,
       map,
-      areaGeoJSON: carLayerBusca.toGeoJSON(),
+      areaGeoJSON: areaFeature,
     });
   };
 
