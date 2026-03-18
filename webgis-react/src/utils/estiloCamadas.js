@@ -241,6 +241,17 @@ export function getEstiloCamada(nome = "") {
     });
   }
 
+  if (nomeUpper.includes("MAPBIOMAS") && nomeUpper.includes("ALERTA")) {
+    return criarEstilo({
+      color: "#ff4d36",
+      fillColor: "#ff9a75",
+      weight: 2.3,
+      fillOpacity: 0.3,
+      opacity: 1,
+      dashArray: "6 3",
+    });
+  }
+
   if (nomeUpper.includes("MAPBIOMAS")) {
     return criarEstilo({
       color: "#20c997",

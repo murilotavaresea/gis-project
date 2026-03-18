@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
+import {
+  booleanPointInPolygon,
+  point as turfPoint,
+  pointToLineDistance,
+} from "@turf/turf";
 import formatarPopupAtributos from "../utils/formatarPopupAtributos";
 
 function parsePlainTextFeatureInfo(text) {
@@ -57,6 +62,138 @@ function parseHtmlFeatureInfo(text) {
 
 function hasNoResults(text) {
   return /Search returned no results/i.test(text);
+}
+
+function buildFeatureInfoPopupContent(results = []) {
+  if (!Array.isArray(results) || results.length === 0) {
+    return null;
+  }
+
+  if (results.length === 1) {
+    return formatarPopupAtributos(results[0].attrs);
+  }
+
+  const root = document.createElement("div");
+  root.className = "feature-info-popup";
+
+  const sidebar = document.createElement("div");
+  sidebar.className = "feature-info-sidebar";
+
+  const title = document.createElement("div");
+  title.className = "feature-info-title";
+  title.textContent = "Resultados encontrados";
+  sidebar.appendChild(title);
+
+  const list = document.createElement("div");
+  list.className = "feature-info-list";
+
+  const content = document.createElement("div");
+  content.className = "feature-info-content";
+
+  const renderActiveResult = (index) => {
+    const activeResult = results[index];
+    content.innerHTML = formatarPopupAtributos(activeResult.attrs) || "";
+
+    [...list.querySelectorAll(".feature-info-item")].forEach((button, buttonIndex) => {
+      button.classList.toggle("is-active", buttonIndex === index);
+    });
+  };
+
+  results.forEach((result, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "feature-info-item";
+    button.textContent = result.label;
+    button.addEventListener("click", () => renderActiveResult(index));
+    list.appendChild(button);
+  });
+
+  sidebar.appendChild(list);
+  root.appendChild(sidebar);
+  root.appendChild(content);
+
+  renderActiveResult(0);
+
+  return root;
+}
+
+function buildOrderedVisibleLayers(camadas = [], orderedLayerNames = []) {
+  const visibles = (camadas || []).filter((camada) => camada?.externa && camada?.visivel);
+
+  return [
+    ...orderedLayerNames
+      .map((nome) => visibles.find((camada) => camada.nome === nome))
+      .filter(Boolean),
+    ...visibles.filter((camada) => !orderedLayerNames.includes(camada.nome)),
+  ];
+}
+
+function buildToleranceMeters(map, latlng, pixels = 10) {
+  const point = map.latLngToContainerPoint(latlng);
+  const shiftedLatLng = map.containerPointToLatLng([point.x + pixels, point.y]);
+  return map.distance(latlng, shiftedLatLng);
+}
+
+function featureMatchesClick(feature, map, latlng, toleranceMeters) {
+  const geometry = feature?.geometry;
+  if (!geometry?.type) {
+    return false;
+  }
+
+  const clickPoint = turfPoint([latlng.lng, latlng.lat]);
+
+  switch (geometry.type) {
+    case "Point":
+      return (
+        map.distance(latlng, L.latLng(geometry.coordinates[1], geometry.coordinates[0])) <=
+        toleranceMeters
+      );
+    case "MultiPoint":
+      return geometry.coordinates.some(
+        (coords) => map.distance(latlng, L.latLng(coords[1], coords[0])) <= toleranceMeters
+      );
+    case "Polygon":
+    case "MultiPolygon":
+      return booleanPointInPolygon(clickPoint, feature);
+    case "LineString":
+    case "MultiLineString":
+      return pointToLineDistance(clickPoint, feature, { units: "meters" }) <= toleranceMeters;
+    default:
+      return false;
+  }
+}
+
+function collectVectorResults({ layers, featureCollectionsExternas, map, latlng }) {
+  const toleranceMeters = buildToleranceMeters(map, latlng);
+  const results = [];
+
+  layers.forEach((layer) => {
+    if (!layer || layer.sourceType === "wms") {
+      return;
+    }
+
+    const collection = featureCollectionsExternas?.[layer.nome];
+    const features = collection?.features || [];
+    let matchedInLayer = 0;
+
+    features.forEach((feature) => {
+      if (!featureMatchesClick(feature, map, latlng, toleranceMeters)) {
+        return;
+      }
+
+      matchedInLayer += 1;
+      results.push({
+        layer,
+        attrs: feature,
+        label:
+          matchedInLayer > 1
+            ? `${layer.titulo || layer.nome} · Feicao ${matchedInLayer}`
+            : layer.titulo || layer.nome,
+      });
+    });
+  });
+
+  return results;
 }
 
 async function requestFeatureInfo({ proxyBaseUrl, layer, map, latlng, signal }) {
@@ -118,29 +255,41 @@ async function requestFeatureInfo({ proxyBaseUrl, layer, map, latlng, signal }) 
   return null;
 }
 
-export default function WmsFeatureInfoOverlay({ camadas, proxyBaseUrl }) {
+export default function WmsFeatureInfoOverlay({
+  camadas,
+  featureCollectionsExternas = {},
+  orderedLayerNames = [],
+  proxyBaseUrl,
+}) {
   const map = useMap();
   const abortRef = useRef(null);
+  const orderedVisibleLayers = useMemo(
+    () => buildOrderedVisibleLayers(camadas, orderedLayerNames),
+    [camadas, orderedLayerNames]
+  );
   const activeIdentifyLayers = useMemo(
     () =>
-      (camadas || []).filter(
+      orderedVisibleLayers.filter(
         (camada) =>
-          camada?.externa &&
           camada?.sourceType === "wms" &&
-          camada?.visivel &&
           camada?.identifyEnabled &&
           camada?.wmsBaseUrl
       ),
-    [camadas]
+    [orderedVisibleLayers]
   );
 
   useEffect(() => {
-    if (!proxyBaseUrl || activeIdentifyLayers.length === 0) {
+    if (orderedVisibleLayers.length === 0) {
       return undefined;
     }
 
     const handleClick = async (event) => {
-      const orderedLayers = [...activeIdentifyLayers].reverse();
+      const results = collectVectorResults({
+        layers: orderedVisibleLayers,
+        featureCollectionsExternas,
+        map,
+        latlng: event.latlng,
+      });
 
       if (abortRef.current) {
         abortRef.current.abort();
@@ -148,41 +297,52 @@ export default function WmsFeatureInfoOverlay({ camadas, proxyBaseUrl }) {
 
       abortRef.current = new AbortController();
 
-      for (const layer of orderedLayers) {
-        if (map.getZoom() < (layer.minZoom ?? 7)) {
-          continue;
-        }
-
-        try {
-          const attrs = await requestFeatureInfo({
-            proxyBaseUrl,
-            layer,
-            map,
-            latlng: event.latlng,
-            signal: abortRef.current.signal,
-          });
-
-          if (!attrs) {
+      if (proxyBaseUrl) {
+        for (const layer of activeIdentifyLayers) {
+          if (map.getZoom() < (layer.minZoom ?? 7)) {
             continue;
           }
 
-          const popupHtml = formatarPopupAtributos(attrs);
-          if (!popupHtml) {
-            return;
-          }
+          try {
+            const attrs = await requestFeatureInfo({
+              proxyBaseUrl,
+              layer,
+              map,
+              latlng: event.latlng,
+              signal: abortRef.current.signal,
+            });
 
-          map.openPopup(
-            L.popup({ maxWidth: 420 })
-              .setLatLng(event.latlng)
-              .setContent(popupHtml)
-          );
-          return;
-        } catch (error) {
-          if (error?.name === "AbortError") {
-            return;
+            if (!attrs) {
+              continue;
+            }
+
+            results.push({
+              layer,
+              attrs,
+              label: layer.titulo || layer.nome,
+            });
+          } catch (error) {
+            if (error?.name === "AbortError") {
+              return;
+            }
           }
         }
       }
+
+      if (results.length === 0) {
+        return;
+      }
+
+      const popupContent = buildFeatureInfoPopupContent(results);
+      if (!popupContent) {
+        return;
+      }
+
+      map.openPopup(
+        L.popup({ maxWidth: 620, className: "feature-info-leafletPopup" })
+          .setLatLng(event.latlng)
+          .setContent(popupContent)
+      );
     };
 
     map.on("click", handleClick);
@@ -193,7 +353,7 @@ export default function WmsFeatureInfoOverlay({ camadas, proxyBaseUrl }) {
         abortRef.current.abort();
       }
     };
-  }, [activeIdentifyLayers, map, proxyBaseUrl]);
+  }, [activeIdentifyLayers, featureCollectionsExternas, map, orderedVisibleLayers, proxyBaseUrl]);
 
   return null;
 }

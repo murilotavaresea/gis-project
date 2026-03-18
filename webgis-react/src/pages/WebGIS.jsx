@@ -1,6 +1,6 @@
 // src/pages/WebGIS.jsx
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '../App.css';
 
 import Sidebar from '../components/Sidebar';
@@ -28,7 +28,6 @@ import PainelAjuda from '../components/PainelAjuda';
 import ProcessingOverlay from '../components/ProcessingOverlay';
 
 import { aplicarPadraoCamada, getEstiloCamada } from '../utils/estiloCamadas';
-import formatarPopupAtributos from '../utils/formatarPopupAtributos';
 
 import * as toGeoJSON from '@tmcw/togeojson';
 import shp from 'shpjs';
@@ -38,6 +37,7 @@ import WfsBboxLayer from "../components/WfsBboxLayer";
 import ExternalWmsLayer from "../components/ExternalWmsLayer";
 import WmsFeatureInfoOverlay from "../components/WmsFeatureInfoOverlay";
 import ArcgisFeatureLayer from "../components/ArcgisFeatureLayer";
+import MapbiomasAlertLayer from "../components/MapbiomasAlertLayer";
 import camadasExternasFallback from "../config/camadasExternasFallback";
 import config from "../config";
 import exportarLayerComoKml from "../utils/exportarLayerComoKml";
@@ -49,8 +49,9 @@ const MAP_ZOOM = 5;
 const EXTERNAL_LAYERS_URL = config.EXTERNAL_LAYERS_URL;
 const EXTERNAL_LAYERS_TIMEOUT_MS = 65000;
 const EXTERNAL_LAYERS_RETRY_DELAY_MS = 1800;
-const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v4";
+const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v5";
 const EXTERNAL_CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
+const LAYER_ORDER_BASE_ZINDEX = 320;
 
 function delay(ms) {
   return new Promise((resolve) => {
@@ -216,6 +217,7 @@ export default function WebGIS() {
 
   const [carLayerBusca, setCarLayerBusca] = useState(null);
   const [camadasCarregando, setCamadasCarregando] = useState({});
+  const [featureCollectionsExternas, setFeatureCollectionsExternas] = useState({});
   const [processingOverlay, setProcessingOverlay] = useState({
     active: false,
     title: '',
@@ -262,8 +264,33 @@ export default function WebGIS() {
     analysisTypeName: c.analysisTypeName,
     analysisWfsVersion: c.analysisWfsVersion ?? '2.0.0',
     analysisWfsParams: c.analysisWfsParams ?? {},
+    mapbiomasProxyPath: c.mapbiomasProxyPath ?? '/proxy/mapbiomas-alerta',
+    mapbiomasStartDate: c.mapbiomasStartDate ?? '2019-01-01',
+    mapbiomasEndDate: c.mapbiomasEndDate ?? null,
+    mapbiomasSources: c.mapbiomasSources ?? ["All"],
+    mapbiomasPageSize: c.mapbiomasPageSize ?? 100,
+    mapbiomasMaxPages: c.mapbiomasMaxPages ?? 3,
     minZoom: c.minZoom ?? 7
   }));
+
+  const nomesCamadasVisiveisOrdenadas = useMemo(() => {
+    const nomesVisiveis = camadas
+      .filter((camada) => camada.visivel)
+      .map((camada) => camada.nome);
+    const nomesOrdenados = ordemCamadasAtivas.filter((nome) => nomesVisiveis.includes(nome));
+    const nomesRestantes = nomesVisiveis.filter((nome) => !nomesOrdenados.includes(nome));
+
+    return [...nomesOrdenados, ...nomesRestantes];
+  }, [camadas, ordemCamadasAtivas]);
+
+  const zIndexPorCamada = useMemo(() => {
+    const total = nomesCamadasVisiveisOrdenadas.length;
+
+    return nomesCamadasVisiveisOrdenadas.reduce((acc, nome, index) => {
+      acc[nome] = LAYER_ORDER_BASE_ZINDEX + (total - index);
+      return acc;
+    }, {});
+  }, [nomesCamadasVisiveisOrdenadas]);
 
   const anexarCamadasExternas = (listaAtual, camadasExternas) => {
     const externasPorChave = new Map(
@@ -298,13 +325,8 @@ export default function WebGIS() {
   const criarStyleCamada = (nomeReferencia) => () =>
     getEstiloCamada(String(nomeReferencia || '').toUpperCase());
 
-  const criarHandleEachFeature = (nomeReferencia) => (feature, layer) => {
-    const popupHtml = formatarPopupAtributos(feature);
+  const criarHandleEachFeature = (nomeReferencia) => (_feature, layer) => {
     const estilo = getEstiloCamada(String(nomeReferencia || '').toUpperCase());
-
-    if (popupHtml) {
-      layer.bindPopup(popupHtml, { maxWidth: 460 });
-    }
 
     aplicarPadraoCamada(layer, estilo, layer._map);
   };
@@ -349,6 +371,29 @@ export default function WebGIS() {
       active: false,
       title: '',
       message: '',
+    });
+  }, []);
+
+  const atualizarFeatureCollectionExterna = useCallback((nomeCamada, data) => {
+    if (!nomeCamada) {
+      return;
+    }
+
+    setFeatureCollectionsExternas((estadoAtual) => {
+      if (!data) {
+        if (!(nomeCamada in estadoAtual)) {
+          return estadoAtual;
+        }
+
+        const proximoEstado = { ...estadoAtual };
+        delete proximoEstado[nomeCamada];
+        return proximoEstado;
+      }
+
+      return {
+        ...estadoAtual,
+        [nomeCamada]: data,
+      };
     });
   }, []);
   useEffect(() => {
@@ -413,6 +458,14 @@ export default function WebGIS() {
     } else {
       atualizarCarregamentoCamada(nome, true);
     }
+
+    setOrdemCamadasAtivas((ordemAtual) => {
+      if (!proximoVisivel) {
+        return ordemAtual.filter((nomeAtual) => nomeAtual !== nome);
+      }
+
+      return [nome, ...ordemAtual.filter((nomeAtual) => nomeAtual !== nome)];
+    });
 
     setCamadas(old =>
       old.map(c => c.nome === nome ? { ...c, visivel: !c.visivel } : c)
@@ -596,28 +649,6 @@ export default function WebGIS() {
 
   };
 
-
-
-  const bringToFront = nome => {
-
-    const map = drawnItemsRef.current._map;
-
-    if (!map) return;
-
-    map.eachLayer(layer => {
-
-      if (layer.feature?.properties?.nome === nome) {
-
-        layer.bringToFront();
-
-      }
-
-    });
-
-  };
-
-
-
   const handleImport = (e) => {
 
     const input = e.target;
@@ -766,7 +797,6 @@ export default function WebGIS() {
       <LayerPanel
         camadas={camadas}
         toggleLayer={toggleLayer}
-        bringToFront={bringToFront}
         ordemCamadasAtivas={ordemCamadasAtivas}
         setOrdemCamadasAtivas={setOrdemCamadasAtivas}
       />
@@ -812,9 +842,11 @@ export default function WebGIS() {
                 url={c.wmsBaseUrl}
                 layers={c.wmsLayers || c.typeName || c.nome}
                 crsCode={c.wmsCrs}
+                paneKey={c.nome}
                 useProxy={c.useProxy}
                 visivel={c.visivel}
                 minZoom={c.minZoom}
+                zIndex={zIndexPorCamada[c.nome]}
                 opacity={c.opacity}
                 params={c.wmsParams}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
@@ -830,12 +862,39 @@ export default function WebGIS() {
                 key={c.nome}
                 baseUrl={config.PROXY_WFS_BASE_URL}
                 queryUrl={c.arcgisQueryUrl}
+                paneKey={c.nome}
                 visivel={c.visivel}
                 minZoom={c.minZoom}
+                zIndex={zIndexPorCamada[c.nome]}
                 queryParams={c.arcgisParams}
                 onEachFeature={criarHandleEachFeature(nomeReferencia)}
                 style={criarStyleCamada(nomeReferencia)}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
+                onDataChange={(data) => atualizarFeatureCollectionExterna(c.nome, data)}
+              />
+            );
+          }
+
+          if (c.externa && c.sourceType === "mapbiomas-alerta") {
+            const nomeReferencia = obterNomeReferenciaCamada(c);
+
+            return (
+              <MapbiomasAlertLayer
+                key={c.nome}
+                url={`${config.API_BASE_URL}${c.mapbiomasProxyPath || "/proxy/mapbiomas-alerta"}`}
+                paneKey={c.nome}
+                visivel={c.visivel}
+                minZoom={c.minZoom}
+                zIndex={zIndexPorCamada[c.nome]}
+                startDate={c.mapbiomasStartDate}
+                endDate={c.mapbiomasEndDate}
+                sources={c.mapbiomasSources}
+                pageSize={c.mapbiomasPageSize}
+                maxPages={c.mapbiomasMaxPages}
+                onEachFeature={criarHandleEachFeature(nomeReferencia)}
+                style={criarStyleCamada(nomeReferencia)}
+                onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
+                onDataChange={(data) => atualizarFeatureCollectionExterna(c.nome, data)}
               />
             );
           }
@@ -850,8 +909,10 @@ export default function WebGIS() {
                 baseUrl={config.PROXY_WFS_BASE_URL}
                 wfsBaseUrl={c.wfsBaseUrl}
                 typeName={c.typeName || c.nome}
+                paneKey={c.nome}
                 visivel={c.visivel}
                 minZoom={c.minZoom}
+                zIndex={zIndexPorCamada[c.nome]}
                 wfsParams={c.wfsParams}
                 wfsVersion={c.wfsVersion}
                 wfsPageSize={c.wfsPageSize}
@@ -861,6 +922,7 @@ export default function WebGIS() {
                 onEachFeature={criarHandleEachFeature(nomeReferencia)}
                 style={criarStyleCamada(nomeReferencia)}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
+                onDataChange={(data) => atualizarFeatureCollectionExterna(c.nome, data)}
               />
 
             );
@@ -873,6 +935,8 @@ export default function WebGIS() {
 
         <WmsFeatureInfoOverlay
           camadas={camadas}
+          featureCollectionsExternas={featureCollectionsExternas}
+          orderedLayerNames={nomesCamadasVisiveisOrdenadas}
           proxyBaseUrl={`${config.API_BASE_URL}/proxy/wms`}
         />
 

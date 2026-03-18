@@ -1,18 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 
 const RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
 const LAST_RESPONSE_BY_LAYER = new Map();
 
+function buildPaneName(paneKey) {
+  return `external-arcgis-${String(paneKey || "default").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 export default function ArcgisFeatureLayer({
   baseUrl,
   queryUrl,
+  paneKey,
   visivel,
   minZoom = 7,
+  zIndex = 410,
   style,
   onEachFeature,
   queryParams = {},
   onLoadingChange,
+  onDataChange,
 }) {
   const map = useMap();
   const [data, setData] = useState(null);
@@ -20,15 +27,32 @@ export default function ArcgisFeatureLayer({
   const abortRef = useRef(null);
   const lastEnvelopeRef = useRef("");
   const onLoadingChangeRef = useRef(onLoadingChange);
+  const onDataChangeRef = useRef(onDataChange);
   const layerCacheKeyRef = useRef(JSON.stringify({ baseUrl, queryUrl }));
+  const paneName = useMemo(() => buildPaneName(paneKey || queryUrl), [paneKey, queryUrl]);
 
   useEffect(() => {
     onLoadingChangeRef.current = onLoadingChange;
   }, [onLoadingChange]);
 
   useEffect(() => {
+    onDataChangeRef.current = onDataChange;
+  }, [onDataChange]);
+
+  useEffect(() => {
     layerCacheKeyRef.current = JSON.stringify({ baseUrl, queryUrl });
   }, [baseUrl, queryUrl]);
+
+  useEffect(() => {
+    let pane = map.getPane(paneName);
+
+    if (!pane) {
+      pane = map.createPane(paneName);
+    }
+
+    pane.style.zIndex = String(zIndex);
+    pane.style.pointerEvents = "auto";
+  }, [map, paneName, zIndex]);
 
   async function fetchByBbox({ force = false } = {}) {
     if (!visivel) return;
@@ -91,6 +115,7 @@ export default function ArcgisFeatureLayer({
       lastEnvelopeRef.current = envelopeKey;
       setData(cachedEntry.data);
       setRenderVersion((prev) => prev + 1);
+      onDataChangeRef.current?.(cachedEntry.data);
       onLoadingChangeRef.current?.(false);
       return;
     }
@@ -102,6 +127,7 @@ export default function ArcgisFeatureLayer({
       if (!res.ok) {
         console.warn(`ArcGIS retornou status ${res.status} para ${queryUrl}.`, text.slice(0, 200));
         setData(null);
+        onDataChangeRef.current?.(null);
         onLoadingChangeRef.current?.(false);
         return;
       }
@@ -109,6 +135,7 @@ export default function ArcgisFeatureLayer({
       if (text.trim().startsWith("<")) {
         console.warn(`ArcGIS retornou HTML/XML para ${queryUrl}.`, text.slice(0, 200));
         setData(null);
+        onDataChangeRef.current?.(null);
         onLoadingChangeRef.current?.(false);
         return;
       }
@@ -118,6 +145,7 @@ export default function ArcgisFeatureLayer({
       if (json?.error) {
         console.warn(`ArcGIS retornou erro para ${queryUrl}.`, json.error);
         setData(null);
+        onDataChangeRef.current?.(null);
         onLoadingChangeRef.current?.(false);
         return;
       }
@@ -133,12 +161,14 @@ export default function ArcgisFeatureLayer({
         data: json,
       });
       setData(json);
+      onDataChangeRef.current?.(json);
       setRenderVersion((prev) => prev + 1);
       onLoadingChangeRef.current?.(false);
     } catch (err) {
       if (err.name === "AbortError") return;
       console.warn(`Erro ao carregar FeatureServer por BBOX para ${queryUrl}:`, err);
       setData(null);
+      onDataChangeRef.current?.(null);
       onLoadingChangeRef.current?.(false);
     }
   }
@@ -147,6 +177,7 @@ export default function ArcgisFeatureLayer({
     if (!visivel) {
       lastEnvelopeRef.current = "";
       setData(null);
+      onDataChangeRef.current?.(null);
       onLoadingChangeRef.current?.(false);
       return;
     }
@@ -172,6 +203,7 @@ export default function ArcgisFeatureLayer({
     <GeoJSON
       key={`${queryUrl}-${renderVersion}`}
       data={data}
+      pane={paneName}
       style={style}
       onEachFeature={onEachFeature}
     />

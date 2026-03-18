@@ -187,6 +187,25 @@ def criar_camadas_inpe_prodes_mosaico():
     ]
 
 
+def criar_camadas_mapbiomas_alerta():
+    return [
+        {
+            "id": "mapbiomas-alerta-publicados",
+            "titulo": "MapBiomas Alerta - Publicados",
+            "typeName": "mapbiomas-alerta-publicados",
+            "sourceType": "mapbiomas-alerta",
+            "grupoExterno": "Alertas",
+            "subgrupoExterno": "MapBiomas Alerta",
+            "minZoom": 6,
+            "mapbiomasProxyPath": "/proxy/mapbiomas-alerta",
+            "mapbiomasStartDate": "2019-01-01",
+            "mapbiomasSources": ["All"],
+            "mapbiomasPageSize": 20,
+            "mapbiomasMaxPages": 1,
+        }
+    ]
+
+
 CAMADAS_EXTERNAS_FALLBACK = [
     {
         "titulo": "Embargos IBAMA",
@@ -202,7 +221,8 @@ CAMADAS_EXTERNAS_FALLBACK = [
         "wfs": "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
         "minZoom": 7,
         "sourceType": "wfs",
-        "grupoExterno": "Fontes Externas",
+        "grupoExterno": "Alertas",
+        "subgrupoExterno": "PRODES",
     },
     {
         "titulo": "PRODES Cerrado - Desmatamento anual",
@@ -210,7 +230,8 @@ CAMADAS_EXTERNAS_FALLBACK = [
         "wfs": "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
         "minZoom": 7,
         "sourceType": "wfs",
-        "grupoExterno": "Fontes Externas",
+        "grupoExterno": "Alertas",
+        "subgrupoExterno": "PRODES",
     },
     {
         "titulo": "Sitios Arqueologicos (IPHAN)",
@@ -264,6 +285,7 @@ CAMADAS_EXTERNAS_FALLBACK = [
         "wfsVersion": "2.0.0",
         "grupoExterno": "Fontes Externas",
     },
+    *criar_camadas_mapbiomas_alerta(),
     *criar_camadas_eox_cloudless(),
     *criar_camadas_inpe_prodes_mosaico(),
     *criar_camadas_areas_atribuidas(),

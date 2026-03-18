@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import { filtrarFeatureCollection } from "../utils/filtrarFeatureCollection";
 
 const RETRY_DELAY_MS = 1800;
 const RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
 const LAST_RESPONSE_BY_LAYER = new Map();
+
+function buildPaneName(paneKey) {
+  return `external-wfs-${String(paneKey || "default").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
 
 function delay(ms) {
   return new Promise((resolve) => {
@@ -27,8 +31,10 @@ export default function WfsBboxLayer({
   baseUrl,
   wfsBaseUrl,
   typeName,
+  paneKey,
   visivel,
   minZoom = 7,
+  zIndex = 410,
   style,
   onEachFeature,
   wfsParams = {},
@@ -38,6 +44,7 @@ export default function WfsBboxLayer({
   wfsPageSize = null,
   wfsMaxPages = 1,
   onLoadingChange,
+  onDataChange,
 }) {
   const map = useMap();
   const [data, setData] = useState(null);
@@ -45,9 +52,11 @@ export default function WfsBboxLayer({
   const abortRef = useRef(null);
   const lastBboxRef = useRef("");
   const onLoadingChangeRef = useRef(onLoadingChange);
+  const onDataChangeRef = useRef(onDataChange);
   const layerCacheKeyRef = useRef(
     buildLayerCacheKey({ baseUrl, wfsBaseUrl, typeName, wfsVersion, wfsPageSize, wfsMaxPages })
   );
+  const paneName = useMemo(() => buildPaneName(paneKey || typeName), [paneKey, typeName]);
 
   useEffect(() => {
     layerCacheKeyRef.current = buildLayerCacheKey({
@@ -63,6 +72,21 @@ export default function WfsBboxLayer({
   useEffect(() => {
     onLoadingChangeRef.current = onLoadingChange;
   }, [onLoadingChange]);
+
+  useEffect(() => {
+    onDataChangeRef.current = onDataChange;
+  }, [onDataChange]);
+
+  useEffect(() => {
+    let pane = map.getPane(paneName);
+
+    if (!pane) {
+      pane = map.createPane(paneName);
+    }
+
+    pane.style.zIndex = String(zIndex);
+    pane.style.pointerEvents = "auto";
+  }, [map, paneName, zIndex]);
 
   async function fetchWithRetry(url, options, retries = 1) {
     let lastResponseText = "";
@@ -175,6 +199,7 @@ export default function WfsBboxLayer({
       lastBboxRef.current = bbox;
       setData(cachedEntry.data);
       setRenderVersion((prev) => prev + 1);
+      onDataChangeRef.current?.(cachedEntry.data);
       onLoadingChangeRef.current?.(false);
       return;
     }
@@ -203,6 +228,7 @@ export default function WfsBboxLayer({
             }
           );
           setData(null);
+          onDataChangeRef.current?.(null);
           onLoadingChangeRef.current?.(false);
           return;
         }
@@ -218,6 +244,7 @@ export default function WfsBboxLayer({
             }
           );
           setData(null);
+          onDataChangeRef.current?.(null);
           onLoadingChangeRef.current?.(false);
           return;
         }
@@ -237,6 +264,10 @@ export default function WfsBboxLayer({
         allFeatures = [...allFeatures, ...pageFeatures];
 
         setData({
+          type: collectionType,
+          features: allFeatures,
+        });
+        onDataChangeRef.current?.({
           type: collectionType,
           features: allFeatures,
         });
@@ -261,6 +292,7 @@ export default function WfsBboxLayer({
       if (err.name === "AbortError") return;
       console.warn(`Erro ao carregar WFS por BBOX para ${typeName}:`, err);
       setData(null);
+      onDataChangeRef.current?.(null);
       onLoadingChangeRef.current?.(false);
     }
   }
@@ -269,6 +301,7 @@ export default function WfsBboxLayer({
     if (!visivel) {
       lastBboxRef.current = "";
       setData(null);
+      onDataChangeRef.current?.(null);
       onLoadingChangeRef.current?.(false);
       return;
     }
@@ -306,6 +339,7 @@ export default function WfsBboxLayer({
     <GeoJSON
       key={`${typeName}-${renderVersion}`}
       data={data}
+      pane={paneName}
       style={style}
       onEachFeature={onEachFeature}
     />

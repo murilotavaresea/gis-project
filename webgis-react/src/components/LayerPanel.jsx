@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Sortable from "sortablejs";
 import "../LayerPanel.css";
 import formatarNomeCamada from "../utils/formatarNomeCamada";
@@ -6,19 +6,24 @@ import formatarNomeCamada from "../utils/formatarNomeCamada";
 export default function LayerPanel({
   camadas,
   toggleLayer,
-  bringToFront,
   ordemCamadasAtivas,
   setOrdemCamadasAtivas,
 }) {
   const listRef = useRef(null);
   const [collapsed, setCollapsed] = useState(false);
 
-  const camadasVisiveis =
-    ordemCamadasAtivas.length > 0
-      ? ordemCamadasAtivas
-          .map((nome) => camadas.find((camada) => camada.nome === nome && camada.visivel))
-          .filter(Boolean)
-      : camadas.filter((camada) => camada.visivel);
+  const camadasVisiveis = useMemo(() => {
+    const camadasVisiveisBase = camadas.filter((camada) => camada.visivel);
+
+    return [
+      ...ordemCamadasAtivas
+        .map((nome) => camadasVisiveisBase.find((camada) => camada.nome === nome))
+        .filter(Boolean),
+      ...camadasVisiveisBase.filter(
+        (camada) => !ordemCamadasAtivas.includes(camada.nome)
+      ),
+    ];
+  }, [camadas, ordemCamadasAtivas]);
 
   useEffect(() => {
     if (listRef.current && !collapsed && camadasVisiveis.length > 0) {
@@ -35,15 +40,13 @@ export default function LayerPanel({
           const [moved] = novaOrdem.splice(from, 1);
           novaOrdem.splice(to, 0, moved);
 
-          const novaLista = novaOrdem.map((camada) => camada.nome);
-          setOrdemCamadasAtivas(novaLista);
-          novaOrdem.slice().reverse().forEach((camada) => bringToFront(camada.nome));
+          setOrdemCamadasAtivas(novaOrdem.map((camada) => camada.nome));
         },
       });
 
       return () => sortable.destroy();
     }
-  }, [collapsed, camadasVisiveis, bringToFront, setOrdemCamadasAtivas]);
+  }, [collapsed, camadasVisiveis, setOrdemCamadasAtivas]);
 
   return (
     <div

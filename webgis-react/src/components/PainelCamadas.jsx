@@ -122,7 +122,7 @@ export default function PainelCamadas({
   const externasFiltradas = filtrar(camadas || []);
   const gruposExternos = useMemo(() => {
     const gruposMap = new Map();
-    const ordemGrupos = ["Fontes Externas", "Imoveis"];
+    const ordemGrupos = ["Alertas", "Mosaicos", "Fontes Externas", "Imoveis"];
 
     ordenarCamadasPorNome(externasFiltradas).forEach((camada) => {
       const grupoNome = camada.grupoExterno || "Fontes Externas";
@@ -205,7 +205,7 @@ export default function PainelCamadas({
       </div>
 
       <div className="pc-content">
-        <div className="pc-blockTitle">Fontes Externas</div>
+        <div className="pc-blockTitle">Camadas Externas</div>
 
         {gruposExternos.map((grupo) => (
           <Section

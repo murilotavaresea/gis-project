@@ -111,6 +111,19 @@ function montarUrlConsulta(camada, bbox) {
     return null;
   }
 
+  if (camada.externa && camada.sourceType === "mapbiomas-alerta") {
+    return (
+      `${config.MAPBIOMAS_ALERTA_PROXY_URL}?bbox=${encodeURIComponent(bbox.join(","))}` +
+      `&startDate=${encodeURIComponent(camada.mapbiomasStartDate || "2019-01-01")}` +
+      `&pageSize=${encodeURIComponent(String(camada.mapbiomasPageSize || 100))}` +
+      `&maxPages=${encodeURIComponent(String(camada.mapbiomasMaxPages || 3))}` +
+      `&sources=${encodeURIComponent((camada.mapbiomasSources || ["All"]).join(","))}` +
+      (camada.mapbiomasEndDate
+        ? `&endDate=${encodeURIComponent(camada.mapbiomasEndDate)}`
+        : "")
+    );
+  }
+
   if (camada.externa) {
     return montarConsultaWfs({
       baseUrl: camada.wfsBaseUrl,

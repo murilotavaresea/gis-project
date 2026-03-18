@@ -8,12 +8,72 @@ from urllib.parse import urlencode, urlparse, urlunparse
 
 import requests
 from flask import Blueprint, Response, current_app, request
+from shapely import wkt as shapely_wkt
+from shapely.geometry import mapping
 
 ibama_bp = Blueprint("ibama", __name__)
 
 WFS_CACHE_TTL_SECONDS = 180
 WFS_CACHE_MAX_ENTRIES = 24
 WFS_CACHE = OrderedDict()
+MAPBIOMAS_TOKEN_TTL_SECONDS = 6 * 60 * 60
+MAPBIOMAS_RESPONSE_CACHE_TTL_SECONDS = 180
+MAPBIOMAS_RESPONSE_CACHE_MAX_ENTRIES = 24
+MAPBIOMAS_RESPONSE_CACHE = OrderedDict()
+MAPBIOMAS_TOKEN_CACHE = {}
+MAPBIOMAS_ALERTA_API_URL = "https://plataforma.alerta.mapbiomas.org/api/v2/graphql"
+MAPBIOMAS_SIGN_IN_MUTATION = """
+mutation signIn($email: String!, $password: String!) {
+  signIn(email: $email, password: $password) {
+    token
+  }
+}
+"""
+MAPBIOMAS_ALERTS_QUERY = """
+query alerts(
+  $page: Int,
+  $limit: Int,
+  $startDate: BaseDate,
+  $endDate: BaseDate,
+  $dateType: DateTypes,
+  $sources: [SourceTypes!],
+  $boundingBox: [Float!],
+  $sortField: AlertSortField,
+  $sortDirection: SortDirection
+) {
+  alerts(
+    page: $page,
+    limit: $limit,
+    startDate: $startDate,
+    endDate: $endDate,
+    dateType: $dateType,
+    sources: $sources,
+    boundingBox: $boundingBox,
+    sortField: $sortField,
+    sortDirection: $sortDirection
+  ) {
+    collection {
+      id
+      alertCode
+      areaHa
+      detectedAt
+      publishedAt
+      statusName
+      sources
+      geometryWkt
+      bbox
+    }
+  }
+}
+"""
+
+
+class MapbiomasAuthError(Exception):
+    pass
+
+
+class MapbiomasApiError(Exception):
+    pass
 
 
 def build_wfs_cache_key(base, params):
@@ -48,6 +108,30 @@ def set_cached_wfs_response(cache_key, *, content, status, content_type, extra_h
 
     while len(WFS_CACHE) > WFS_CACHE_MAX_ENTRIES:
         WFS_CACHE.popitem(last=False)
+
+
+def get_cached_entry(cache_store, cache_key):
+    cached = cache_store.get(cache_key)
+    if not cached:
+        return None
+
+    if cached["expires_at"] <= time.time():
+        cache_store.pop(cache_key, None)
+        return None
+
+    cache_store.move_to_end(cache_key)
+    return cached
+
+
+def set_cached_entry(cache_store, cache_key, *, ttl_seconds, max_entries, payload):
+    cache_store[cache_key] = {
+        "payload": payload,
+        "expires_at": time.time() + ttl_seconds,
+    }
+    cache_store.move_to_end(cache_key)
+
+    while len(cache_store) > max_entries:
+        cache_store.popitem(last=False)
 
 
 
@@ -112,6 +196,32 @@ def request_external(base, params, timeout=60):
         )
 
 
+def post_json(url, payload, *, headers=None, timeout=60):
+    request_headers = {
+        "User-Agent": "webgis-backend-proxy/1.0",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        **(headers or {}),
+    }
+
+    try:
+        return requests.post(url, json=payload, timeout=timeout, headers=request_headers)
+    except requests.exceptions.SSLError as error:
+        current_app.logger.warning(
+            "Falha SSL ao consultar API externa via POST; repetindo sem verificacao de certificado. "
+            "url=%s erro=%s",
+            url,
+            error,
+        )
+        return requests.post(
+            url,
+            json=payload,
+            timeout=timeout,
+            headers=request_headers,
+            verify=False,
+        )
+
+
 def normalize_external_base_url(base):
     try:
         parsed = urlparse(base)
@@ -135,6 +245,220 @@ def normalize_external_base_url(base):
             netloc=netloc,
         )
     )
+
+
+def get_mapbiomas_credentials():
+    email = os.getenv("MAPBIOMAS_ALERTA_EMAIL", "").strip()
+    password = os.getenv("MAPBIOMAS_ALERTA_PASSWORD", "").strip()
+    return email, password
+
+
+def parse_mapbiomas_errors(payload):
+    errors = payload.get("errors") or []
+    message = " | ".join(
+        str(item.get("message") or "Falha ao consultar o MapBiomas Alerta.")
+        for item in errors
+        if isinstance(item, dict)
+    ).strip()
+
+    if not message:
+        message = "Falha ao consultar o MapBiomas Alerta."
+
+    serialized = json.dumps(errors).lower()
+    if any(token in serialized for token in ("unauth", "forbidden", "token", "login")):
+        raise MapbiomasAuthError(message)
+
+    raise MapbiomasApiError(message)
+
+
+def normalize_mapbiomas_bbox(raw_bbox):
+    if raw_bbox is None:
+        return None
+
+    if isinstance(raw_bbox, list):
+        values = []
+        for value in raw_bbox:
+            try:
+                values.append(float(value))
+            except (TypeError, ValueError):
+                continue
+        return values[:4] if len(values) >= 4 else None
+
+    text = str(raw_bbox).strip()
+    if not text:
+        return None
+
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list):
+            return normalize_mapbiomas_bbox(parsed)
+    except json.JSONDecodeError:
+        pass
+
+    numeric_values = []
+    current = ""
+    valid_chars = set("-0123456789.")
+    for char in text:
+        if char in valid_chars:
+            current += char
+            continue
+
+        if current:
+            try:
+                numeric_values.append(float(current))
+            except ValueError:
+                pass
+            current = ""
+
+    if current:
+        try:
+            numeric_values.append(float(current))
+        except ValueError:
+            pass
+
+    return numeric_values[:4] if len(numeric_values) >= 4 else None
+
+
+def build_polygon_from_bounds(bounds):
+    west, south, east, north = bounds
+    return {
+        "type": "Polygon",
+        "coordinates": [[
+            [west, south],
+            [east, south],
+            [east, north],
+            [west, north],
+            [west, south],
+        ]],
+    }
+
+
+def geometry_from_wkt(geometry_wkt):
+    if not geometry_wkt:
+        return None
+
+    try:
+        geometry = shapely_wkt.loads(geometry_wkt)
+    except Exception:
+        return None
+
+    return mapping(geometry) if geometry else None
+
+
+def build_mapbiomas_feature(alert):
+    geometry = geometry_from_wkt(alert.get("geometryWkt"))
+    bounds = normalize_mapbiomas_bbox(alert.get("bbox"))
+    if geometry is None and not bounds:
+        return None
+
+    sources = alert.get("sources")
+    return {
+        "type": "Feature",
+        "geometry": geometry or build_polygon_from_bounds(bounds),
+        "properties": {
+            "id": alert.get("id"),
+            "alertCode": alert.get("alertCode"),
+            "areaHa": alert.get("areaHa"),
+            "detectedAt": alert.get("detectedAt"),
+            "publishedAt": alert.get("publishedAt"),
+            "statusName": alert.get("statusName"),
+            "sources": ", ".join(sources) if isinstance(sources, list) else sources,
+            "provider": "MapBiomas Alerta",
+            "geometrySource": "geometryWkt" if geometry is not None else "bbox",
+        },
+    }
+
+
+def build_mapbiomas_response_cache_key(params):
+    return json.dumps(params, sort_keys=True, ensure_ascii=True)
+
+
+def get_mapbiomas_token(force_refresh=False):
+    email, password = get_mapbiomas_credentials()
+    if not email or not password:
+        raise MapbiomasApiError(
+            "Credenciais do MapBiomas Alerta nao configuradas no backend."
+        )
+
+    cached = MAPBIOMAS_TOKEN_CACHE.get("token")
+    if (
+        cached
+        and not force_refresh
+        and MAPBIOMAS_TOKEN_CACHE.get("email") == email
+        and MAPBIOMAS_TOKEN_CACHE.get("expires_at", 0) > time.time()
+    ):
+        return cached
+
+    response = post_json(
+        MAPBIOMAS_ALERTA_API_URL,
+        {
+            "query": MAPBIOMAS_SIGN_IN_MUTATION,
+            "variables": {
+                "email": email,
+                "password": password,
+            },
+        },
+        timeout=60,
+    )
+
+    if not response.ok:
+        raise MapbiomasApiError(
+            f"Autenticacao no MapBiomas Alerta falhou com HTTP {response.status_code}."
+        )
+
+    payload = response.json()
+    if payload.get("errors"):
+        parse_mapbiomas_errors(payload)
+
+    token = ((payload.get("data") or {}).get("signIn") or {}).get("token")
+    if not token:
+        raise MapbiomasApiError(
+            "Autenticacao no MapBiomas Alerta nao retornou token."
+        )
+
+    MAPBIOMAS_TOKEN_CACHE.clear()
+    MAPBIOMAS_TOKEN_CACHE.update(
+        {
+            "token": token,
+            "email": email,
+            "expires_at": time.time() + MAPBIOMAS_TOKEN_TTL_SECONDS,
+        }
+    )
+    return token
+
+
+def request_mapbiomas_alerts(*, token, variables):
+    normalized_variables = {
+        key: value
+        for key, value in variables.items()
+        if value is not None and value != ""
+    }
+
+    response = post_json(
+        MAPBIOMAS_ALERTA_API_URL,
+        {
+            "query": MAPBIOMAS_ALERTS_QUERY,
+            "variables": normalized_variables,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=60,
+    )
+
+    if response.status_code in (401, 403):
+        raise MapbiomasAuthError(
+            f"Consulta ao MapBiomas Alerta falhou com HTTP {response.status_code}."
+        )
+
+    if not response.ok:
+        raise MapbiomasApiError(
+            f"Consulta ao MapBiomas Alerta falhou com HTTP {response.status_code}."
+        )
+
+    payload = response.json()
+    if payload.get("errors"):
+        parse_mapbiomas_errors(payload)
+
+    return ((payload.get("data") or {}).get("alerts") or {}).get("collection") or []
 
 
 def gml_has_features(content):
@@ -391,4 +715,113 @@ def proxy_wms():
     try:
         return proxy_external_request(base, params)
     except Exception as error:
+        return {"erro": str(error)}, 500
+
+
+@ibama_bp.route("/proxy/mapbiomas-alerta")
+def proxy_mapbiomas_alerta():
+    try:
+        bbox = normalize_mapbiomas_bbox(request.args.get("bbox", ""))
+        if not bbox:
+            return {"erro": "Parametro 'bbox' invalido ou ausente."}, 400
+
+        email, password = get_mapbiomas_credentials()
+        if not email or not password:
+            return {
+                "erro": "Credenciais do MapBiomas Alerta nao configuradas no backend."
+            }, 503
+
+        start_date = request.args.get("startDate", "2019-01-01").strip() or "2019-01-01"
+        end_date = request.args.get("endDate", "").strip() or None
+        date_type = request.args.get("dateType", "DetectedAt").strip() or "DetectedAt"
+        sort_field = request.args.get("sortField", "DETECTED_AT").strip() or "DETECTED_AT"
+        sort_direction = request.args.get("sortDirection", "DESC").strip() or "DESC"
+        page_size = max(1, min(int(request.args.get("pageSize", "100")), 500))
+        max_pages = max(1, min(int(request.args.get("maxPages", "3")), 10))
+        sources_raw = request.args.get("sources", "All").strip()
+        sources = [item.strip() for item in sources_raw.split(",") if item.strip()] or ["All"]
+
+        cache_key = build_mapbiomas_response_cache_key(
+            {
+                "bbox": bbox,
+                "startDate": start_date,
+                "endDate": end_date,
+                "dateType": date_type,
+                "sortField": sort_field,
+                "sortDirection": sort_direction,
+                "pageSize": page_size,
+                "maxPages": max_pages,
+                "sources": sources,
+            }
+        )
+        cached = get_cached_entry(MAPBIOMAS_RESPONSE_CACHE, cache_key)
+        if cached:
+            response = build_response(
+                json.dumps(cached["payload"]),
+                status=200,
+                content_type="application/json",
+                extra_headers={"X-Proxy-Cache": "hit"},
+            )
+            return response
+
+        def collect_features(force_refresh=False):
+            token = get_mapbiomas_token(force_refresh=force_refresh)
+            features = []
+
+            for page in range(1, max_pages + 1):
+                collection = request_mapbiomas_alerts(
+                    token=token,
+                    variables={
+                        "page": page,
+                        "limit": page_size,
+                        "startDate": start_date,
+                        "endDate": end_date,
+                        "dateType": date_type,
+                        "sources": sources,
+                        "boundingBox": bbox,
+                        "sortField": sort_field,
+                        "sortDirection": sort_direction,
+                    },
+                )
+
+                for alert in collection:
+                    feature = build_mapbiomas_feature(alert)
+                    if feature:
+                        features.append(feature)
+
+                if len(collection) < page_size:
+                    break
+
+            return features
+
+        try:
+            features = collect_features(force_refresh=False)
+        except MapbiomasAuthError:
+            MAPBIOMAS_TOKEN_CACHE.clear()
+            features = collect_features(force_refresh=True)
+
+        payload = {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+        set_cached_entry(
+            MAPBIOMAS_RESPONSE_CACHE,
+            cache_key,
+            ttl_seconds=MAPBIOMAS_RESPONSE_CACHE_TTL_SECONDS,
+            max_entries=MAPBIOMAS_RESPONSE_CACHE_MAX_ENTRIES,
+            payload=payload,
+        )
+        return build_response(
+            json.dumps(payload),
+            status=200,
+            content_type="application/json",
+            extra_headers={"X-Proxy-Cache": "miss"},
+        )
+    except ValueError:
+        return {"erro": "Parametros numericos invalidos para a consulta do MapBiomas."}, 400
+    except MapbiomasApiError as error:
+        current_app.logger.warning("Falha ao consultar o MapBiomas Alerta: %s", error)
+        return {"erro": str(error)}, 502
+    except Exception as error:
+        current_app.logger.exception("Erro inesperado ao consultar o MapBiomas Alerta.")
         return {"erro": str(error)}, 500

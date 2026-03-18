@@ -4,6 +4,7 @@ import config from "../config";
 
 const GEOSERVER_INTERNO_URL = config.GEOSERVER_BASE_URL;
 const ACERVO_FUNDIARIO_OGC_URL = "http://acervofundiario.incra.gov.br/i3geo/ogc.php";
+const MAPBIOMAS_ALERTA_GRAPHQL_URL = "https://plataforma.alerta.mapbiomas.org/api/v2/graphql";
 
 function normalizarUrlFonte(url = "") {
   if (!url) {
@@ -62,6 +63,10 @@ function identificarFonte(url = "") {
       return "Embrapa";
     }
 
+    if (hostname.includes("plataforma.alerta.mapbiomas.org")) {
+      return "MapBiomas Alerta";
+    }
+
     if (hostname.includes("acervofundiario.incra.gov.br")) {
       return "Acervo Fundiario / INCRA";
     }
@@ -103,6 +108,16 @@ function resumirCamada(camada) {
       orgao: identificarFonte(camada.arcgisQueryUrl),
       servico: "ArcGIS Feature Service",
       url: normalizarUrlFonte(camada.arcgisQueryUrl),
+      camada: formatarNomeCamada(camada),
+    };
+  }
+
+  if (camada.sourceType === "mapbiomas-alerta") {
+    return {
+      grupo: "Fontes Externas",
+      orgao: "MapBiomas Alerta",
+      servico: "Proxy backend / GraphQL API",
+      url: normalizarUrlFonte(camada.mapbiomasApiUrl || MAPBIOMAS_ALERTA_GRAPHQL_URL),
       camada: formatarNomeCamada(camada),
     };
   }

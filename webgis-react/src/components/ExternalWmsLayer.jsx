@@ -2,21 +2,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { WMSTileLayer, useMap } from "react-leaflet";
 
-const EXTERNAL_WMS_PANE = "external-wms-pane";
 const WMS_CRS_BY_CODE = {
   "EPSG:3857": L.CRS.EPSG3857,
   "EPSG:900913": L.CRS.EPSG3857,
   "EPSG:4326": L.CRS.EPSG4326,
 };
 
+function buildPaneName(paneKey) {
+  return `external-wms-${String(paneKey || "default").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 export default function ExternalWmsLayer({
   baseUrl,
   url,
   layers,
   crsCode,
+  paneKey,
   useProxy = true,
   visivel,
   minZoom = 7,
+  zIndex = 350,
   opacity = 1,
   params = {},
   onLoadingChange,
@@ -28,6 +33,7 @@ export default function ExternalWmsLayer({
   const shouldUseProxy = Boolean(useProxy && baseUrl && url);
   const tileUrl = shouldUseProxy ? `${baseUrl}?base=${encodeURIComponent(url)}` : url;
   const wmsCrs = useMemo(() => WMS_CRS_BY_CODE[crsCode] ?? undefined, [crsCode]);
+  const paneName = useMemo(() => buildPaneName(paneKey || layers), [paneKey, layers]);
   const wmsParams = useMemo(
     () => ({
       version: "1.1.1",
@@ -43,15 +49,15 @@ export default function ExternalWmsLayer({
   }, [onLoadingChange]);
 
   useEffect(() => {
-    let pane = map.getPane(EXTERNAL_WMS_PANE);
+    let pane = map.getPane(paneName);
 
     if (!pane) {
-      pane = map.createPane(EXTERNAL_WMS_PANE);
+      pane = map.createPane(paneName);
     }
 
-    pane.style.zIndex = "350";
+    pane.style.zIndex = String(zIndex);
     pane.style.pointerEvents = "none";
-  }, [map]);
+  }, [map, paneName, zIndex]);
 
   useEffect(() => {
     const atualizarZoom = () => setZoomAtual(map.getZoom());
@@ -77,8 +83,8 @@ export default function ExternalWmsLayer({
     <WMSTileLayer
       url={tileUrl}
       layers={layers}
-      pane={EXTERNAL_WMS_PANE}
-      zIndex={350}
+      pane={paneName}
+      zIndex={zIndex}
       opacity={opacity}
       crs={wmsCrs}
       eventHandlers={{
