@@ -119,6 +119,24 @@ def criar_camadas_areas_atribuidas():
         ),
     ]
 
+    return [
+        {
+            "id": identificador,
+            "titulo": titulo,
+            "typeName": "geonode:areasatribuidas2023",
+            "wfs": "https://geoinfo.dados.embrapa.br/geoserver/wfs",
+            "minZoom": 6,
+            "sourceType": "wfs",
+            "wfsVersion": "2.0.0",
+            "grupoExterno": "Fontes Externas",
+            "featureFilter": {
+                "field": "categoria",
+                "value": categoria,
+            },
+        }
+        for titulo, categoria, identificador in categorias
+    ]
+
 
 def criar_camadas_eox_cloudless():
     return [
@@ -166,24 +184,6 @@ def criar_camadas_inpe_prodes_mosaico():
             },
         }
         for time_value in INPE_PRODES_MOSAIC_TIMES
-    ]
-
-    return [
-        {
-            "id": identificador,
-            "titulo": titulo,
-            "typeName": "geonode:areasatribuidas2023",
-            "wfs": "https://geoinfo.dados.embrapa.br/geoserver/wfs",
-            "minZoom": 6,
-            "sourceType": "wfs",
-            "wfsVersion": "2.0.0",
-            "grupoExterno": "Fontes Externas",
-            "featureFilter": {
-                "field": "categoria",
-                "value": categoria,
-            },
-        }
-        for titulo, categoria, identificador in categorias
     ]
 
 
