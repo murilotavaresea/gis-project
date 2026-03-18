@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+﻿import React, { useRef, useState } from "react";
 import L from "leaflet";
 import tokml from "tokml";
 import * as turf from "@turf/turf";
@@ -30,9 +30,9 @@ function MeasurementPanel({
         <select value={unidade} onChange={(e) => setUnidade(e.target.value)}>
           {tipo === "polygon" ? (
             <>
-              <option value="m²">m²</option>
+              <option value="mÂ²">mÂ²</option>
               <option value="ha">hectares</option>
-              <option value="km²">km²</option>
+              <option value="kmÂ²">kmÂ²</option>
               <option value="alq">alqueires paulistas</option>
             </>
           ) : (
@@ -71,6 +71,8 @@ export default function DrawTools({
   camadas,
   carLayerBusca,
   setCarLayerBusca,
+  showProcessingOverlay,
+  hideProcessingOverlay,
 }) {
   const map = useMap();
   const measurementLayersRef = useRef([]);
@@ -89,8 +91,67 @@ export default function DrawTools({
     areaGeoJSON: null,
     overlayLayers: [],
   });
+  const [mostrarMapaRelatorio, setMostrarMapaRelatorio] = useState(false);
+  const mapaRelatorioResolverRef = useRef(null);
+  const mapaRelatorioTimeoutRef = useRef(null);
 
   const toolIconStyle = { width: "22px", height: "22px" };
+
+  const limparMapaRelatorio = () => {
+    if (mapaRelatorioTimeoutRef.current) {
+      window.clearTimeout(mapaRelatorioTimeoutRef.current);
+      mapaRelatorioTimeoutRef.current = null;
+    }
+
+    if (mapaRelatorioResolverRef.current) {
+      mapaRelatorioResolverRef.current();
+      mapaRelatorioResolverRef.current = null;
+    }
+
+    const container = document.getElementById("mapa-pdf");
+    if (container) {
+      container.innerHTML = "";
+      delete container.dataset.renderReady;
+    }
+
+    setMostrarMapaRelatorio(false);
+    setMapaRelatorioData({
+      areaGeoJSON: null,
+      overlayLayers: [],
+    });
+  };
+
+  const prepararMapaRelatorio = (payload) =>
+    new Promise((resolve) => {
+      if (mapaRelatorioTimeoutRef.current) {
+        window.clearTimeout(mapaRelatorioTimeoutRef.current);
+      }
+
+      mapaRelatorioResolverRef.current = () => {
+        if (mapaRelatorioTimeoutRef.current) {
+          window.clearTimeout(mapaRelatorioTimeoutRef.current);
+          mapaRelatorioTimeoutRef.current = null;
+        }
+
+        mapaRelatorioResolverRef.current = null;
+        resolve();
+      };
+
+      mapaRelatorioTimeoutRef.current = window.setTimeout(() => {
+        if (mapaRelatorioResolverRef.current) {
+          mapaRelatorioResolverRef.current();
+        }
+      }, 4000);
+
+      setMapaRelatorioData(payload);
+      setMostrarMapaRelatorio(true);
+    });
+
+  const handleMapaRelatorioReady = () => {
+    if (mapaRelatorioResolverRef.current) {
+      mapaRelatorioResolverRef.current();
+    }
+  };
 
   const clearMeasurementLayers = () => {
     measurementLayersRef.current.forEach((layer) => {
@@ -229,17 +290,17 @@ export default function DrawTools({
         let unidadeStr = "";
 
         switch (unidade) {
-          case "m²":
+          case "mÂ²":
             valor = areaM2;
-            unidadeStr = "m²";
+            unidadeStr = "mÂ²";
             break;
           case "ha":
             valor = areaM2 / 10000;
             unidadeStr = "hectares";
             break;
-          case "km²":
+          case "kmÂ²":
             valor = areaM2 / 1e6;
-            unidadeStr = "km²";
+            unidadeStr = "kmÂ²";
             break;
           case "alq":
             valor = areaM2 / 24200;
@@ -247,7 +308,7 @@ export default function DrawTools({
             break;
           default:
             valor = areaM2;
-            unidadeStr = "m²";
+            unidadeStr = "mÂ²";
             break;
         }
 
@@ -446,12 +507,17 @@ export default function DrawTools({
           camadasImportadas={camadasImportadas}
           setCamadasImportadas={setCamadasImportadas}
           camadas={camadas}
+          showProcessingOverlay={showProcessingOverlay}
+          hideProcessingOverlay={hideProcessingOverlay}
         />
 
         <VerificarSobreposicao
           carLayerBusca={carLayerBusca}
           camadas={camadas}
-          onAtualizarMapaRelatorio={setMapaRelatorioData}
+          onPrepararMapaRelatorio={prepararMapaRelatorio}
+          onLimparMapaRelatorio={limparMapaRelatorio}
+          showProcessingOverlay={showProcessingOverlay}
+          hideProcessingOverlay={hideProcessingOverlay}
         />
       </div>
 
@@ -474,6 +540,8 @@ export default function DrawTools({
         onClose={() => setMostrarBuscaCAR(false)}
         visivel={mostrarBuscaCAR}
         setCarLayerBusca={setCarLayerBusca}
+        showProcessingOverlay={showProcessingOverlay}
+        hideProcessingOverlay={hideProcessingOverlay}
       />
 
       {linhasMedicao.length > 0 && (
@@ -494,10 +562,11 @@ export default function DrawTools({
         </div>
       )}
 
-      {carLayerBusca && (
+      {mostrarMapaRelatorio && mapaRelatorioData.areaGeoJSON && (
         <MapaRelatorio
-          geojson={mapaRelatorioData.areaGeoJSON || carLayerBusca.toGeoJSON()}
+          geojson={mapaRelatorioData.areaGeoJSON}
           overlayLayers={mapaRelatorioData.overlayLayers}
+          onReady={handleMapaRelatorioReady}
         />
       )}
     </>

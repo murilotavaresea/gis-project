@@ -6,8 +6,23 @@ function normalizeBaseUrl(url) {
   return url.replace(/\/+$/, "");
 }
 
+function getDefaultApiBaseUrl() {
+  if (typeof window === "undefined") {
+    return "http://localhost:5000";
+  }
+
+  const { hostname } = window.location;
+  const isLocalhost = ["localhost", "127.0.0.1", "[::1]"].includes(hostname);
+
+  if (isLocalhost) {
+    return "http://localhost:5000";
+  }
+
+  return "";
+}
+
 const API_BASE_URL = normalizeBaseUrl(
-  process.env.REACT_APP_API_BASE_URL || "http://localhost:5000"
+  process.env.REACT_APP_API_BASE_URL || getDefaultApiBaseUrl()
 );
 
 const GEOSERVER_BASE_URL = normalizeBaseUrl(

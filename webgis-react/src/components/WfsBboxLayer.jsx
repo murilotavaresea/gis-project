@@ -3,10 +3,23 @@ import { GeoJSON, useMap } from "react-leaflet";
 import { filtrarFeatureCollection } from "../utils/filtrarFeatureCollection";
 
 const RETRY_DELAY_MS = 1800;
+const RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
+const LAST_RESPONSE_BY_LAYER = new Map();
 
 function delay(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
+  });
+}
+
+function buildLayerCacheKey({ baseUrl, wfsBaseUrl, typeName, wfsVersion, wfsPageSize, wfsMaxPages }) {
+  return JSON.stringify({
+    baseUrl,
+    wfsBaseUrl,
+    typeName,
+    wfsVersion,
+    wfsPageSize: wfsPageSize || null,
+    wfsMaxPages: wfsMaxPages || 1,
   });
 }
 
@@ -24,28 +37,63 @@ export default function WfsBboxLayer({
   featureFilter = null,
   wfsPageSize = null,
   wfsMaxPages = 1,
+  onLoadingChange,
 }) {
   const map = useMap();
   const [data, setData] = useState(null);
   const [renderVersion, setRenderVersion] = useState(0);
   const abortRef = useRef(null);
   const lastBboxRef = useRef("");
+  const onLoadingChangeRef = useRef(onLoadingChange);
+  const layerCacheKeyRef = useRef(
+    buildLayerCacheKey({ baseUrl, wfsBaseUrl, typeName, wfsVersion, wfsPageSize, wfsMaxPages })
+  );
+
+  useEffect(() => {
+    layerCacheKeyRef.current = buildLayerCacheKey({
+      baseUrl,
+      wfsBaseUrl,
+      typeName,
+      wfsVersion,
+      wfsPageSize,
+      wfsMaxPages,
+    });
+  }, [baseUrl, wfsBaseUrl, typeName, wfsVersion, wfsPageSize, wfsMaxPages]);
+
+  useEffect(() => {
+    onLoadingChangeRef.current = onLoadingChange;
+  }, [onLoadingChange]);
 
   async function fetchWithRetry(url, options, retries = 1) {
     let lastResponseText = "";
 
     for (let attempt = 0; attempt <= retries; attempt += 1) {
-      const response = await fetch(url, options);
-      const text = await response.text();
-      lastResponseText = text;
+      try {
+        const response = await fetch(url, options);
+        const text = await response.text();
+        lastResponseText = text;
 
-      if (response.ok) {
-        return { response, text };
-      }
+        if (response.ok) {
+          return { response, text };
+        }
 
-      const isRetriable = response.status === 502 || response.status === 503 || response.status === 504;
-      if (!isRetriable || attempt === retries) {
-        return { response, text };
+        const isRetriable =
+          response.status === 429 ||
+          response.status === 500 ||
+          response.status === 502 ||
+          response.status === 503 ||
+          response.status === 504;
+        if (!isRetriable || attempt === retries) {
+          return { response, text };
+        }
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          throw error;
+        }
+
+        if (attempt === retries) {
+          throw error;
+        }
       }
 
       await delay(RETRY_DELAY_MS);
@@ -64,6 +112,7 @@ export default function WfsBboxLayer({
     if (zoomAtual < minZoom) {
       lastBboxRef.current = "";
       setData(null);
+      onLoadingChangeRef.current?.(false);
       return;
     }
 
@@ -84,6 +133,7 @@ export default function WfsBboxLayer({
 
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
+    onLoadingChangeRef.current?.(true);
 
     const typeParamName = String(wfsVersion).startsWith("2.") ? "typenames" : "typeName";
     const maxParamName = String(wfsVersion).startsWith("2.") ? "count" : "maxFeatures";
@@ -115,6 +165,20 @@ export default function WfsBboxLayer({
       return query;
     };
 
+    const firstRequestKey = `${baseUrl}?${buildQuery(0).toString()}`;
+    const cachedEntry = LAST_RESPONSE_BY_LAYER.get(layerCacheKeyRef.current);
+    if (
+      cachedEntry &&
+      cachedEntry.requestKey === firstRequestKey &&
+      cachedEntry.expiresAt > Date.now()
+    ) {
+      lastBboxRef.current = bbox;
+      setData(cachedEntry.data);
+      setRenderVersion((prev) => prev + 1);
+      onLoadingChangeRef.current?.(false);
+      return;
+    }
+
     try {
       const totalPages = Math.max(1, wfsPageSize ? wfsMaxPages : 1);
       let allFeatures = [];
@@ -139,6 +203,7 @@ export default function WfsBboxLayer({
             }
           );
           setData(null);
+          onLoadingChangeRef.current?.(false);
           return;
         }
 
@@ -153,6 +218,7 @@ export default function WfsBboxLayer({
             }
           );
           setData(null);
+          onLoadingChangeRef.current?.(false);
           return;
         }
 
@@ -182,10 +248,20 @@ export default function WfsBboxLayer({
       }
 
       lastBboxRef.current = bbox;
+      LAST_RESPONSE_BY_LAYER.set(layerCacheKeyRef.current, {
+        requestKey: firstRequestKey,
+        expiresAt: Date.now() + RESPONSE_CACHE_TTL_MS,
+        data: {
+          type: collectionType,
+          features: allFeatures,
+        },
+      });
+      onLoadingChangeRef.current?.(false);
     } catch (err) {
       if (err.name === "AbortError") return;
       console.warn(`Erro ao carregar WFS por BBOX para ${typeName}:`, err);
       setData(null);
+      onLoadingChangeRef.current?.(false);
     }
   }
 
@@ -193,6 +269,7 @@ export default function WfsBboxLayer({
     if (!visivel) {
       lastBboxRef.current = "";
       setData(null);
+      onLoadingChangeRef.current?.(false);
       return;
     }
 
@@ -206,6 +283,7 @@ export default function WfsBboxLayer({
       map.off("moveend", onMoveEnd);
       map.off("zoomend", onMoveEnd);
       if (abortRef.current) abortRef.current.abort();
+      onLoadingChangeRef.current?.(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

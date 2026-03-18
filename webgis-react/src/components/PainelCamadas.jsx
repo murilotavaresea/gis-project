@@ -61,9 +61,17 @@ function Toggle({ checked, onChange }) {
   );
 }
 
-function LayerRow({ label, checked, onToggle, right }) {
+function LoadingIndicator() {
   return (
-    <div className="pc-layerRow">
+    <span className="pc-loadingBadge" title="Carregando camada" aria-label="Carregando camada">
+      <span className="pc-inlineSpinner" />
+    </span>
+  );
+}
+
+function LayerRow({ label, checked, onToggle, right, loading = false }) {
+  return (
+    <div className={`pc-layerRow ${loading ? "is-loading" : ""}`}>
       <div className="pc-layerLeft" onClick={onToggle} role="button" tabIndex={0}>
         <span className={`pc-dot ${checked ? "on" : ""}`} />
         <span className="pc-layerName" title={label}>
@@ -72,6 +80,7 @@ function LayerRow({ label, checked, onToggle, right }) {
       </div>
 
       <div className="pc-layerRight">
+        {loading && <LoadingIndicator />}
         <Toggle checked={checked} onChange={onToggle} />
         {right}
       </div>
@@ -96,33 +105,9 @@ export default function PainelCamadas({
   alternarDesenhoParaExportacao,
   removerTodosDesenhos,
   indiceEditando,
+  camadasCarregando = {},
 }) {
   const [busca, setBusca] = useState("");
-
-  const grupos = useMemo(() => {
-    const base = camadas || [];
-    const isExterna = (camada) => !!camada.externa;
-
-    const isMapbiomas = (camada) =>
-      (camada.nome || "").toUpperCase().includes("MAPBIOMAS");
-    const isAreasProt = (camada) =>
-      [
-        "ASSENTAMENTO",
-        "QUILOMBOLA",
-        "TERRAS_INDIGENAS",
-        "UNIDADES_DE_CONSERVACAO",
-      ].includes((camada.nome || "").split(":").pop().toUpperCase());
-
-    const db = base.filter(
-      (camada) =>
-        !isExterna(camada) && !isMapbiomas(camada) && !isAreasProt(camada)
-    );
-    const externas = base.filter((camada) => isExterna(camada));
-    const mapbiomas = base.filter((camada) => isMapbiomas(camada));
-    const areasProt = base.filter((camada) => !isExterna(camada) && isAreasProt(camada));
-
-    return { db, externas, mapbiomas, areasProt };
-  }, [camadas]);
 
   const filtrar = (arr) => {
     if (!busca.trim()) return arr;
@@ -134,11 +119,7 @@ export default function PainelCamadas({
     });
   };
 
-  const nomeFinal = (nome) => (nome || "").split(":").pop();
-  const dbFiltradas = filtrar(grupos.db);
-  const externasFiltradas = filtrar(grupos.externas);
-  const mapFiltradas = filtrar(grupos.mapbiomas);
-  const apFiltradas = filtrar(grupos.areasProt);
+  const externasFiltradas = filtrar(camadas || []);
   const gruposExternos = useMemo(() => {
     const gruposMap = new Map();
     const ordemGrupos = ["Fontes Externas", "Imoveis"];
@@ -193,11 +174,10 @@ export default function PainelCamadas({
       }));
   }, [externasFiltradas]);
   const totalAtivas = (camadas || []).filter((camada) => camada.visivel).length;
-  const totalExternas = (camadas || []).filter((camada) => camada.externa).length;
   const resumoCards = [
     { label: "Fontes", valor: camadas.length },
     { label: "Ativas", valor: totalAtivas },
-    { label: "Externas", valor: totalExternas },
+    { label: "Externas", valor: camadas.length },
     { label: "Arquivos", valor: camadasImportadas.length + desenhos.length },
   ];
 
@@ -225,19 +205,7 @@ export default function PainelCamadas({
       </div>
 
       <div className="pc-content">
-        <div className="pc-blockTitle">Camadas</div>
-
-        <Section title="Banco de Dados" count={dbFiltradas.length}>
-          {dbFiltradas.map((camada) => (
-            <LayerRow
-              key={camada.nome}
-              label={formatarNomeCamada(camada)}
-              checked={!!camada.visivel}
-              onToggle={() => toggleLayer(camada.nome)}
-            />
-          ))}
-          {dbFiltradas.length === 0 && <div className="pc-empty">Nenhuma camada encontrada.</div>}
-        </Section>
+        <div className="pc-blockTitle">Fontes Externas</div>
 
         {gruposExternos.map((grupo) => (
           <Section
@@ -253,6 +221,7 @@ export default function PainelCamadas({
                 key={camada.nome}
                 label={formatarNomeCamada(camada)}
                 checked={!!camada.visivel}
+                loading={!!camadasCarregando[camada.nome] && !!camada.visivel}
                 onToggle={() => toggleLayer(camada.nome)}
               />
             ))}
@@ -267,6 +236,7 @@ export default function PainelCamadas({
                     key={camada.nome}
                     label={formatarNomeCamada(camada)}
                     checked={!!camada.visivel}
+                    loading={!!camadasCarregando[camada.nome] && !!camada.visivel}
                     onToggle={() => toggleLayer(camada.nome)}
                   />
                 ))}
@@ -276,34 +246,6 @@ export default function PainelCamadas({
         ))}
         {externasFiltradas.length === 0 && (
           <div className="pc-empty">Nenhuma camada externa encontrada.</div>
-        )}
-
-        <Section title="Mapbiomas" count={mapFiltradas.length} defaultOpen={false}>
-          {mapFiltradas.map((camada) => (
-            <LayerRow
-              key={camada.nome}
-              label={formatarNomeCamada(camada)}
-              checked={!!camada.visivel}
-              onToggle={() => toggleLayer(camada.nome)}
-            />
-          ))}
-          {mapFiltradas.length === 0 && <div className="pc-empty">Nenhuma camada Mapbiomas.</div>}
-        </Section>
-
-        {apFiltradas.length > 0 && (
-          <Section title="Areas Protegidas" count={apFiltradas.length} defaultOpen={false}>
-            {apFiltradas.map((camada) => {
-              const nomeAP = nomeFinal(camada.nome);
-              return (
-                <LayerRow
-                  key={camada.nome}
-                  label={formatarNomeCamada({ ...camada, nome: nomeAP })}
-                  checked={!!camada.visivel}
-                  onToggle={() => toggleLayer(camada.nome)}
-                />
-              );
-            })}
-          </Section>
         )}
 
         <div className="pc-divider" />

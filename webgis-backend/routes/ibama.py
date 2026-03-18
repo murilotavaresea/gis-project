@@ -1,13 +1,54 @@
 import json
 import os
 import tempfile
+import time
 import xml.etree.ElementTree as ET
-from urllib.parse import urlparse, urlunparse
+from collections import OrderedDict
+from urllib.parse import urlencode, urlparse, urlunparse
 
 import requests
 from flask import Blueprint, Response, current_app, request
 
 ibama_bp = Blueprint("ibama", __name__)
+
+WFS_CACHE_TTL_SECONDS = 180
+WFS_CACHE_MAX_ENTRIES = 24
+WFS_CACHE = OrderedDict()
+
+
+def build_wfs_cache_key(base, params):
+    return f"{normalize_external_base_url(base)}?{urlencode(sorted(params.items()), doseq=True)}"
+
+
+def get_cached_wfs_response(cache_key):
+    cached = WFS_CACHE.get(cache_key)
+    if not cached:
+        return None
+
+    if cached["expires_at"] <= time.time():
+        WFS_CACHE.pop(cache_key, None)
+        return None
+
+    WFS_CACHE.move_to_end(cache_key)
+    return cached
+
+
+def set_cached_wfs_response(cache_key, *, content, status, content_type, extra_headers=None):
+    if status >= 400:
+        return
+
+    WFS_CACHE[cache_key] = {
+        "content": content,
+        "status": status,
+        "content_type": content_type,
+        "extra_headers": extra_headers or {},
+        "expires_at": time.time() + WFS_CACHE_TTL_SECONDS,
+    }
+    WFS_CACHE.move_to_end(cache_key)
+
+    while len(WFS_CACHE) > WFS_CACHE_MAX_ENTRIES:
+        WFS_CACHE.popitem(last=False)
+
 
 
 def is_wfs_getfeature(params):
@@ -191,6 +232,17 @@ def build_response(content, status, content_type, extra_headers=None):
     return response
 
 
+def build_cached_response(cached):
+    headers = dict(cached.get("extra_headers") or {})
+    headers["X-Proxy-Cache"] = "hit"
+    return build_response(
+        cached["content"],
+        status=cached["status"],
+        content_type=cached["content_type"],
+        extra_headers=headers,
+    )
+
+
 def proxy_external_request(base, params, timeout=60):
     response = request_external(base, params, timeout=timeout)
     return Response(
@@ -214,6 +266,11 @@ def proxy_wfs():
     try:
         proxy_params = normalize_wfs_params(params)
         type_name = proxy_params.get("typeName") or proxy_params.get("typenames")
+        cache_key = build_wfs_cache_key(base, proxy_params)
+        cached_response = get_cached_wfs_response(cache_key)
+
+        if cached_response:
+            return build_cached_response(cached_response)
         if is_wfs_getfeature(params) and wants_geojson(params) and should_force_gml(params):
             response = fetch_wfs_as_gml(base, proxy_params)
         else:
@@ -222,14 +279,23 @@ def proxy_wfs():
         if response.ok and is_wfs_getfeature(params) and wants_geojson(params) and is_xml_response(response):
             try:
                 geojson, feature_count = gml_bytes_to_geojson(response.content, type_name=type_name)
+                extra_headers = {
+                    "X-Proxy-Transform": "gml-to-geojson",
+                    "X-Feature-Count": str(feature_count),
+                    "X-Proxy-Cache": "miss",
+                }
+                set_cached_wfs_response(
+                    cache_key,
+                    content=geojson,
+                    status=response.status_code,
+                    content_type="application/json",
+                    extra_headers=extra_headers,
+                )
                 return build_response(
                     geojson,
                     status=response.status_code,
                     content_type="application/json",
-                    extra_headers={
-                        "X-Proxy-Transform": "gml-to-geojson",
-                        "X-Feature-Count": str(feature_count),
-                    },
+                    extra_headers=extra_headers,
                 )
             except Exception as error:
                 current_app.logger.warning(
@@ -249,14 +315,23 @@ def proxy_wfs():
                             fallback_response.content,
                             type_name=type_name,
                         )
+                        extra_headers = {
+                            "X-Proxy-Transform": "gml-to-geojson-fallback",
+                            "X-Feature-Count": str(feature_count),
+                            "X-Proxy-Cache": "miss",
+                        }
+                        set_cached_wfs_response(
+                            cache_key,
+                            content=geojson,
+                            status=fallback_response.status_code,
+                            content_type="application/json",
+                            extra_headers=extra_headers,
+                        )
                         return build_response(
                             geojson,
                             status=fallback_response.status_code,
                             content_type="application/json",
-                            extra_headers={
-                                "X-Proxy-Transform": "gml-to-geojson-fallback",
-                                "X-Feature-Count": str(feature_count),
-                            },
+                            extra_headers=extra_headers,
                         )
                 except Exception as fallback_error:
                     current_app.logger.warning(
@@ -281,11 +356,22 @@ def proxy_wfs():
                     extra_headers={"X-Proxy-Transform": "gml-to-geojson-failed"},
                 )
 
+        extra_headers = {
+            "X-Proxy-Transform": "passthrough",
+            "X-Proxy-Cache": "miss",
+        }
+        set_cached_wfs_response(
+            cache_key,
+            content=response.content,
+            status=response.status_code,
+            content_type=response.headers.get("Content-Type", "application/json"),
+            extra_headers=extra_headers,
+        )
         return build_response(
             response.content,
             status=response.status_code,
             content_type=response.headers.get("Content-Type", "application/json"),
-            extra_headers={"X-Proxy-Transform": "passthrough"},
+            extra_headers=extra_headers,
         )
 
     except Exception as error:

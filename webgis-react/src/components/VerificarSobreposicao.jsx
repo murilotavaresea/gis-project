@@ -5,7 +5,6 @@ import { useMap } from "react-leaflet";
 import { filtrarFeatureCollection } from "../utils/filtrarFeatureCollection";
 import config from "../config";
 
-const GEOSERVER_BASE = config.GEOSERVER_BASE_URL;
 const PROXY_WFS_BASE = config.PROXY_WFS_BASE_URL;
 const MIN_INTERSECTION_AREA_M2 = 1;
 
@@ -29,6 +28,24 @@ function formatarNomeCamada(camada) {
     Unidades_de_Conservacao: "Unidade de Conservacao",
   };
   return mapa[base] || base.replace(/_/g, " ");
+}
+
+function deveIgnorarNaSobreposicao(camada) {
+  const identificadores = [
+    camada?.titulo,
+    camada?.nome,
+    camada?.typeName,
+  ]
+    .filter(Boolean)
+    .map((valor) => String(valor).toUpperCase());
+
+  return identificadores.some(
+    (valor) =>
+      valor.includes("MALHA MUNICIPAL") ||
+      valor.includes("CGEO:ANDB2022_020302") ||
+      valor.includes("MVW_APF_GEOMETRIA_REGULAR") ||
+      valor === "APF"
+  );
 }
 
 function montarQueryString(params = {}) {
@@ -104,14 +121,7 @@ function montarUrlConsulta(camada, bbox) {
     });
   }
 
-  const nomeCamada = camada.nome.includes(":") ? camada.nome : `webgis:${camada.nome}`;
-
-  return (
-    `${GEOSERVER_BASE}?service=WFS&version=1.1.0&request=GetFeature` +
-    `&typeName=${encodeURIComponent(nomeCamada)}` +
-    `&bbox=${bbox.join(",")},EPSG:4326` +
-    `&outputFormat=application/json`
-  );
+  return null;
 }
 
 function isPolygonalGeometry(feature) {
@@ -176,7 +186,10 @@ function possuiSobreposicaoReal(areaFeature, feature) {
 export default function VerificarSobreposicao({
   carLayerBusca,
   camadas,
-  onAtualizarMapaRelatorio,
+  onPrepararMapaRelatorio,
+  onLimparMapaRelatorio,
+  showProcessingOverlay,
+  hideProcessingOverlay,
 }) {
   const map = useMap();
   const iconStyle = { width: "22px", height: "22px" };
@@ -207,84 +220,108 @@ export default function VerificarSobreposicao({
     const bbox = turf.bbox(buffer);
     const resultados = [];
     const camadasSobrepostasMapa = [];
-
-    for (const camada of camadas) {
-      const nomeBase = (camada.nome || "").toUpperCase();
-      if (!camada.nome || nomeBase.includes("ESTADOS")) continue;
-
-      const nomeFormatado = formatarNomeCamada(camada);
-      const nomeFormatadoUpper = nomeFormatado.toUpperCase();
-      const url = montarUrlConsulta(camada, bbox);
-
-      if (!url) {
-        continue;
+    const camadasConsultaveis = (camadas || []).filter((camada) => {
+      if (!camada?.nome || deveIgnorarNaSobreposicao(camada)) {
+        return false;
       }
 
-      try {
-        const res = await fetch(url);
-        const text = await res.text();
+      return Boolean(montarUrlConsulta(camada, bbox));
+    });
+    const totalCamadas = camadasConsultaveis.length;
 
-        if (!res.ok || text.trim().startsWith("<")) {
-          throw new Error(`Resposta invalida para ${nomeFormatado}`);
-        }
-
-        const data = filtrarFeatureCollection(
-          JSON.parse(text),
-          camada.featureFilter
-        );
-
-        const featuresSobrepostas = (data.features || []).filter((feature) =>
-          possuiSobreposicaoReal(areaFeature, feature)
-        );
-        const intersecta = featuresSobrepostas.length > 0;
-
-        if (intersecta) {
-          if (
-            !nomeFormatadoUpper.includes("MUNICIPIO") &&
-            !nomeFormatadoUpper.includes("MUNICIPIOS") &&
-            !nomeFormatadoUpper.includes("MALHA MUNICIPAL")
-          ) {
-            camadasSobrepostasMapa.push({
-              nome: nomeFormatado,
-              geojson: {
-                type: "FeatureCollection",
-                features: featuresSobrepostas,
-              },
-            });
-          }
-        }
-
-        resultados.push({
-          camada: nomeFormatado,
-          sobreposicao: !!intersecta,
-          erroConsulta: false,
-        });
-      } catch (error) {
-        console.warn(`Erro ao buscar ou processar camada ${nomeFormatado}:`, error);
-        resultados.push({
-          camada: nomeFormatado,
-          sobreposicao: false,
-          erroConsulta: true,
-        });
-      }
-    }
-
-    if (onAtualizarMapaRelatorio) {
-      onAtualizarMapaRelatorio({
-        areaGeoJSON: areaFeature,
-        overlayLayers: camadasSobrepostasMapa,
+    try {
+      showProcessingOverlay?.({
+        title: "Gerando relatorio",
+        message: "Consultando as camadas disponiveis para verificar sobreposicoes.",
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 700));
-    }
+      for (let index = 0; index < camadasConsultaveis.length; index += 1) {
+        const camada = camadasConsultaveis[index];
+        const nomeFormatado = formatarNomeCamada(camada);
+        const nomeFormatadoUpper = nomeFormatado.toUpperCase();
+        const url = montarUrlConsulta(camada, bbox);
 
-    await gerarRelatorioPDF({
-      codigoCAR: areaFeature.properties?.cod_imovel || "sem_codigo",
-      resultados,
-      overlayLayers: camadasSobrepostasMapa,
-      map,
-      areaGeoJSON: areaFeature,
-    });
+        if (!url) {
+          continue;
+        }
+
+        showProcessingOverlay?.({
+          title: "Gerando relatorio",
+          message: `Consultando camada ${index + 1} de ${totalCamadas}: ${nomeFormatado}.`,
+        });
+
+        try {
+          const res = await fetch(url);
+          const text = await res.text();
+
+          if (!res.ok || text.trim().startsWith("<")) {
+            throw new Error(`Resposta invalida para ${nomeFormatado}`);
+          }
+
+          const data = filtrarFeatureCollection(
+            JSON.parse(text),
+            camada.featureFilter
+          );
+
+          const featuresSobrepostas = (data.features || []).filter((feature) =>
+            possuiSobreposicaoReal(areaFeature, feature)
+          );
+          const intersecta = featuresSobrepostas.length > 0;
+
+          if (intersecta) {
+            if (
+              !nomeFormatadoUpper.includes("MUNICIPIO") &&
+              !nomeFormatadoUpper.includes("MUNICIPIOS") &&
+              !nomeFormatadoUpper.includes("MALHA MUNICIPAL")
+            ) {
+              camadasSobrepostasMapa.push({
+                nome: nomeFormatado,
+                geojson: {
+                  type: "FeatureCollection",
+                  features: featuresSobrepostas,
+                },
+              });
+            }
+          }
+
+          resultados.push({
+            camada: nomeFormatado,
+            sobreposicao: !!intersecta,
+            erroConsulta: false,
+          });
+        } catch (error) {
+          console.warn(`Erro ao buscar ou processar camada ${nomeFormatado}:`, error);
+          resultados.push({
+            camada: nomeFormatado,
+            sobreposicao: false,
+            erroConsulta: true,
+          });
+        }
+      }
+
+      if (onPrepararMapaRelatorio) {
+        await onPrepararMapaRelatorio({
+          areaGeoJSON: areaFeature,
+          overlayLayers: camadasSobrepostasMapa,
+        });
+      }
+
+      showProcessingOverlay?.({
+        title: "Gerando relatorio",
+        message: "Montando o PDF final com o mapa e os resultados encontrados.",
+      });
+
+      await gerarRelatorioPDF({
+        codigoCAR: areaFeature.properties?.cod_imovel || "sem_codigo",
+        resultados,
+        overlayLayers: camadasSobrepostasMapa,
+        map,
+        areaGeoJSON: areaFeature,
+      });
+    } finally {
+      onLimparMapaRelatorio?.();
+      hideProcessingOverlay?.();
+    }
   };
 
   return (

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 
+const RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
+const LAST_RESPONSE_BY_LAYER = new Map();
+
 export default function ArcgisFeatureLayer({
   baseUrl,
   queryUrl,
@@ -9,12 +12,23 @@ export default function ArcgisFeatureLayer({
   style,
   onEachFeature,
   queryParams = {},
+  onLoadingChange,
 }) {
   const map = useMap();
   const [data, setData] = useState(null);
   const [renderVersion, setRenderVersion] = useState(0);
   const abortRef = useRef(null);
   const lastEnvelopeRef = useRef("");
+  const onLoadingChangeRef = useRef(onLoadingChange);
+  const layerCacheKeyRef = useRef(JSON.stringify({ baseUrl, queryUrl }));
+
+  useEffect(() => {
+    onLoadingChangeRef.current = onLoadingChange;
+  }, [onLoadingChange]);
+
+  useEffect(() => {
+    layerCacheKeyRef.current = JSON.stringify({ baseUrl, queryUrl });
+  }, [baseUrl, queryUrl]);
 
   async function fetchByBbox({ force = false } = {}) {
     if (!visivel) return;
@@ -23,6 +37,7 @@ export default function ArcgisFeatureLayer({
     if (zoomAtual < minZoom) {
       lastEnvelopeRef.current = "";
       setData(null);
+      onLoadingChangeRef.current?.(false);
       return;
     }
 
@@ -44,6 +59,7 @@ export default function ArcgisFeatureLayer({
 
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
+    onLoadingChangeRef.current?.(true);
 
     const where = queryParams.where || "1=1";
 
@@ -70,6 +86,14 @@ export default function ArcgisFeatureLayer({
     });
 
     const url = `${baseUrl}?${query.toString()}`;
+    const cachedEntry = LAST_RESPONSE_BY_LAYER.get(layerCacheKeyRef.current);
+    if (cachedEntry && cachedEntry.requestKey === url && cachedEntry.expiresAt > Date.now()) {
+      lastEnvelopeRef.current = envelopeKey;
+      setData(cachedEntry.data);
+      setRenderVersion((prev) => prev + 1);
+      onLoadingChangeRef.current?.(false);
+      return;
+    }
 
     try {
       const res = await fetch(url, { signal: abortRef.current.signal });
@@ -78,12 +102,14 @@ export default function ArcgisFeatureLayer({
       if (!res.ok) {
         console.warn(`ArcGIS retornou status ${res.status} para ${queryUrl}.`, text.slice(0, 200));
         setData(null);
+        onLoadingChangeRef.current?.(false);
         return;
       }
 
       if (text.trim().startsWith("<")) {
         console.warn(`ArcGIS retornou HTML/XML para ${queryUrl}.`, text.slice(0, 200));
         setData(null);
+        onLoadingChangeRef.current?.(false);
         return;
       }
 
@@ -92,6 +118,7 @@ export default function ArcgisFeatureLayer({
       if (json?.error) {
         console.warn(`ArcGIS retornou erro para ${queryUrl}.`, json.error);
         setData(null);
+        onLoadingChangeRef.current?.(false);
         return;
       }
 
@@ -100,12 +127,19 @@ export default function ArcgisFeatureLayer({
       }
 
       lastEnvelopeRef.current = envelopeKey;
+      LAST_RESPONSE_BY_LAYER.set(layerCacheKeyRef.current, {
+        requestKey: url,
+        expiresAt: Date.now() + RESPONSE_CACHE_TTL_MS,
+        data: json,
+      });
       setData(json);
       setRenderVersion((prev) => prev + 1);
+      onLoadingChangeRef.current?.(false);
     } catch (err) {
       if (err.name === "AbortError") return;
       console.warn(`Erro ao carregar FeatureServer por BBOX para ${queryUrl}:`, err);
       setData(null);
+      onLoadingChangeRef.current?.(false);
     }
   }
 
@@ -113,6 +147,7 @@ export default function ArcgisFeatureLayer({
     if (!visivel) {
       lastEnvelopeRef.current = "";
       setData(null);
+      onLoadingChangeRef.current?.(false);
       return;
     }
 
@@ -126,6 +161,7 @@ export default function ArcgisFeatureLayer({
       map.off("moveend", onMoveEnd);
       map.off("zoomend", onMoveEnd);
       if (abortRef.current) abortRef.current.abort();
+      onLoadingChangeRef.current?.(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visivel, queryUrl, baseUrl, minZoom, queryParams]);

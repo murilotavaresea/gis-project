@@ -200,24 +200,30 @@ export default function MapaRelatorio({
     tileLayer.addTo(map);
 
     const boundsArea = camadaArea.getBounds();
-
+ 
     if (boundsArea.isValid()) {
-      map.fitBounds(boundsArea.pad(0.2), {
-        paddingTopLeft: [18, 18],
-        paddingBottomRight: [18, 18],
+      map.whenReady(() => {
+        map.invalidateSize(false);
+        map.fitBounds(boundsArea.pad(0.2), {
+          paddingTopLeft: [18, 18],
+          paddingBottomRight: [18, 18],
+        });
       });
     }
 
     let gridLayer = null;
+    let readyNotified = false;
     const finalizarRender = () => {
       if (gridLayer) {
         map.removeLayer(gridLayer);
       }
 
+      map.invalidateSize(false);
       gridLayer = adicionarGrid(map, map.getBounds().pad(0.02));
 
-      if (onReady) {
-        setTimeout(() => onReady(), 200);
+      if (onReady && !readyNotified) {
+        readyNotified = true;
+        window.setTimeout(() => onReady(), 150);
       }
     };
 
@@ -237,9 +243,10 @@ export default function MapaRelatorio({
         width: "500px",
         height: "300px",
         position: "absolute",
-        top: 0,
-        left: 0,
+        top: "-10000px",
+        left: "-10000px",
         zIndex: -1,
+        pointerEvents: "none",
       }}
     >
       <img

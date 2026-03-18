@@ -9,6 +9,8 @@ export default function BuscaCAR({
   onClose,
   visivel = true,
   setCarLayerBusca,
+  showProcessingOverlay,
+  hideProcessingOverlay,
 }) {
   const [codigoCAR, setCodigoCAR] = useState('');
   const [buscando, setBuscando] = useState(false);
@@ -36,6 +38,10 @@ export default function BuscaCAR({
     const url = `${wfsUrl}?service=WFS&version=1.0.0&request=GetFeature&typeName=${typeName}&outputFormat=application/json&CQL_FILTER=cod_imovel='${codigoCAR}'`;
 
     try {
+      showProcessingOverlay?.({
+        title: 'Buscando area do CAR',
+        message: 'Consultando o servico oficial e preparando a geometria para visualizacao.',
+      });
       const { data } = await axios.get(url);
 
       if (!data.features || data.features.length === 0) {
@@ -72,6 +78,7 @@ export default function BuscaCAR({
       alert('Erro ao buscar CAR.');
     } finally {
       setBuscando(false);
+      hideProcessingOverlay?.();
     }
   };
 

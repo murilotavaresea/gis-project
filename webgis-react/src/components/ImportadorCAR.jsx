@@ -18,7 +18,9 @@ export default function ImportadorCAR({
   fileInputRefCAR,
   drawnItemsRef,
   setCamadasImportadas,
-  setAreaDoImovelLayer
+  setAreaDoImovelLayer,
+  showProcessingOverlay,
+  hideProcessingOverlay,
 }) {
   const map = useMap();
 
@@ -33,6 +35,10 @@ export default function ImportadorCAR({
     formData.append("file", file);
 
     try {
+      showProcessingOverlay?.({
+        title: "Importando CAR",
+        message: "Lendo o arquivo ZIP e organizando as camadas do imovel no mapa.",
+      });
       const response = await fetch(`${config.API_BASE_URL}/importar_car`, {
         method: "POST",
         body: formData,
@@ -101,6 +107,8 @@ export default function ImportadorCAR({
     } catch (err) {
       alert("Erro ao importar arquivo do CAR");
       console.error(err);
+    } finally {
+      hideProcessingOverlay?.();
     }
   };
 

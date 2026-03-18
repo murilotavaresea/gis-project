@@ -3,7 +3,6 @@ import html2canvas from "html2canvas";
 import { getEstiloCamada } from "../utils/estiloCamadas";
 
 const PAGE_WIDTH = 210;
-const PAGE_HEIGHT = 297;
 const MARGIN_X = 16;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_X * 2;
 const HEADER_HEIGHT = 28;

@@ -205,6 +205,8 @@ export default function GerarAreaBeneficiavel({
   camadasImportadas,
   setCamadasImportadas,
   camadas,
+  showProcessingOverlay,
+  hideProcessingOverlay,
 }) {
   const gerar = async () => {
     if (!map || !drawnItemsRef.current) {
@@ -243,20 +245,34 @@ export default function GerarAreaBeneficiavel({
     ].filter(Boolean);
 
     let apfGeojson = null;
-
-    if (exigeApf) {
-      try {
-        apfGeojson = await buscarApfExterna(featureImovel, camadas);
-      } catch (error) {
-        console.error("Erro ao buscar APF externa:", error);
-        alert(
-          "Para CAR do Mato Grosso, a area beneficiavel precisa ser intersectada com a APF. Nao foi possivel validar a APF externa."
-        );
-        return;
-      }
-    }
+    let processamentoAtivo = false;
 
     try {
+      processamentoAtivo = true;
+      showProcessingOverlay?.({
+        title: "Gerando area beneficiavel",
+        message: exigeApf
+          ? "Consultando a APF externa antes de aplicar as restricoes espaciais."
+          : "Aplicando as restricoes espaciais para calcular a area final.",
+      });
+
+      if (exigeApf) {
+        try {
+          apfGeojson = await buscarApfExterna(featureImovel, camadas);
+        } catch (error) {
+          console.error("Erro ao buscar APF externa:", error);
+          alert(
+            "Para CAR do Mato Grosso, a area beneficiavel precisa ser intersectada com a APF. Nao foi possivel validar a APF externa."
+          );
+          return;
+        }
+      }
+
+      showProcessingOverlay?.({
+        title: "Gerando area beneficiavel",
+        message: "Calculando a geometria final para adicionar o resultado ao mapa.",
+      });
+
       const response = await fetch(config.GENERATE_AREA_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -299,6 +315,10 @@ export default function GerarAreaBeneficiavel({
     } catch (error) {
       console.error("Erro ao gerar area beneficiavel:", error);
       alert("Erro ao gerar area beneficiavel.");
+    } finally {
+      if (processamentoAtivo) {
+        hideProcessingOverlay?.();
+      }
     }
   };
 
