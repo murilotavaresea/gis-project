@@ -50,6 +50,46 @@ const ESTADOS_IMOVEIS_SIGEF = [
   ["TO", "Tocantins"],
 ];
 
+const EOX_CLOUDLESS_LAYERS = [
+  ["2016", "s2cloudless_3857"],
+  ["2017", "s2cloudless-2017_3857"],
+  ["2018", "s2cloudless-2018_3857"],
+  ["2019", "s2cloudless-2019_3857"],
+  ["2020", "s2cloudless-2020_3857"],
+  ["2021", "s2cloudless-2021_3857"],
+  ["2022", "s2cloudless-2022_3857"],
+  ["2023", "s2cloudless-2023_3857"],
+  ["2024", "s2cloudless-2024_3857"],
+];
+
+const INPE_PRODES_MOSAIC_TIMES = [
+  "2000-01-01T00:00:00.000Z",
+  "2001-01-01T00:00:00.000Z",
+  "2002-01-01T00:00:00.000Z",
+  "2003-01-01T00:00:00.000Z",
+  "2004-01-01T00:00:00.000Z",
+  "2005-01-01T00:00:00.000Z",
+  "2006-01-01T00:00:00.000Z",
+  "2007-01-01T00:00:00.000Z",
+  "2008-01-01T00:00:00.000Z",
+  "2009-01-01T00:00:00.000Z",
+  "2010-01-01T00:00:00.000Z",
+  "2011-01-01T00:00:00.000Z",
+  "2012-01-01T00:00:00.000Z",
+  "2013-01-01T00:00:00.000Z",
+  "2014-01-01T00:00:00.000Z",
+  "2015-01-01T00:00:00.000Z",
+  "2016-01-01T00:00:00.000Z",
+  "2017-01-01T00:00:00.000Z",
+  "2018-01-01T00:00:00.000Z",
+  "2019-01-01T00:00:00.000Z",
+  "2020-01-01T00:00:00.000Z",
+  "2021-01-01T00:00:00.000Z",
+  "2022-01-01T00:00:00.000Z",
+  "2023-01-01T00:00:00.000Z",
+  "2024-01-01T00:00:00.000Z",
+];
+
 function criarCamadasImoveis(estados, temaPrefixo, subgrupoExterno) {
   return estados.map(([uf, nomeEstado]) => ({
     titulo: nomeEstado,
@@ -89,6 +129,53 @@ function criarCamadasAreasAtribuidas() {
       value: categoria,
     },
   }));
+}
+
+function criarCamadasEoxCloudless() {
+  return EOX_CLOUDLESS_LAYERS.map(([ano, layerName]) => ({
+    id: `eox-s2cloudless-${ano}`,
+    titulo: `Sentinel-2 ${ano}`,
+    typeName: layerName,
+    wmsLayers: layerName,
+    wms: "https://tiles.maps.eox.at/wms",
+    useProxy: false,
+    minZoom: 1,
+    opacity: 1,
+    sourceType: "wms",
+    grupoExterno: "Mosaicos",
+    subgrupoExterno: "Sentinel cloudless",
+    wmsParams: {
+      format: "image/jpeg",
+      transparent: false,
+    },
+  }));
+}
+
+function criarCamadasInpeProdesMosaico() {
+  return INPE_PRODES_MOSAIC_TIMES.map((timeValue) => {
+    const ano = timeValue.slice(0, 4);
+
+    return {
+      id: `inpe-prodes-mosaico-${ano}`,
+      titulo: `Mosaico PRODES ${ano}`,
+      typeName: "temporal_mosaic_legal_amazon",
+      wmsLayers: "temporal_mosaic_legal_amazon",
+      wms: "https://terrabrasilis.dpi.inpe.br/geoserver/prodes-legal-amz/wms",
+      useProxy: false,
+      minZoom: 4,
+      opacity: 1,
+      sourceType: "wms",
+      grupoExterno: "Mosaicos",
+      subgrupoExterno: "PRODES Amazônia Legal",
+      wmsCrs: "EPSG:4326",
+      wmsParams: {
+        version: "1.3.0",
+        format: "image/png",
+        transparent: false,
+        time: timeValue,
+      },
+    };
+  });
 }
 
 const camadasExternasFallback = [
@@ -169,6 +256,8 @@ const camadasExternasFallback = [
     wfsVersion: "2.0.0",
     grupoExterno: "Fontes Externas",
   },
+  ...criarCamadasEoxCloudless(),
+  ...criarCamadasInpeProdesMosaico(),
   ...criarCamadasAreasAtribuidas(),
   ...criarCamadasImoveis(
     ESTADOS_IMOVEIS_SNCI,

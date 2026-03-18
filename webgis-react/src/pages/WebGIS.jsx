@@ -1,6 +1,6 @@
 // src/pages/WebGIS.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import '../App.css';
 
 import Sidebar from '../components/Sidebar';
@@ -18,14 +18,14 @@ import {
   LayersControl,
   TileLayer,
   MapContainer,
-  FeatureGroup,
-  GeoJSON
+  FeatureGroup
 } from 'react-leaflet';
 
 import ImportadorCAR from '../components/ImportadorCAR';
 import PainelCamadas from '../components/PainelCamadas';
 import PainelFontesCamadas from '../components/PainelFontesCamadas';
 import PainelAjuda from '../components/PainelAjuda';
+import ProcessingOverlay from '../components/ProcessingOverlay';
 
 import { aplicarPadraoCamada, getEstiloCamada } from '../utils/estiloCamadas';
 import formatarPopupAtributos from '../utils/formatarPopupAtributos';
@@ -44,12 +44,13 @@ import exportarLayerComoKml from "../utils/exportarLayerComoKml";
 
 window.L = L;
 
-const GEOSERVER_WFS_URL = config.GEOSERVER_BASE_URL;
 const MAP_CENTER = [-14.8, -51.5];
 const MAP_ZOOM = 5;
 const EXTERNAL_LAYERS_URL = config.EXTERNAL_LAYERS_URL;
 const EXTERNAL_LAYERS_TIMEOUT_MS = 65000;
 const EXTERNAL_LAYERS_RETRY_DELAY_MS = 1800;
+const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v4";
+const EXTERNAL_CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 
 function delay(ms) {
   return new Promise((resolve) => {
@@ -83,37 +84,51 @@ async function fetchJsonWithRetry(url, options = {}, retries = 1) {
   throw lastError;
 }
 
-function isCamadaInternaFPB(nome = '') {
-  return nome.split(':').pop().toUpperCase().startsWith('FPB');
+function readCachedExternalCatalog() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(EXTERNAL_CATALOG_CACHE_KEY);
+    if (!rawValue) {
+      return null;
+    }
+
+    const parsed = JSON.parse(rawValue);
+    if (
+      !parsed ||
+      !Array.isArray(parsed.data) ||
+      !parsed.savedAt ||
+      Date.now() - parsed.savedAt > EXTERNAL_CATALOG_CACHE_TTL_MS
+    ) {
+      window.localStorage.removeItem(EXTERNAL_CATALOG_CACHE_KEY);
+      return null;
+    }
+
+    return parsed.data;
+  } catch (error) {
+    console.warn("Nao foi possivel ler o cache local do catalogo externo:", error);
+    return null;
+  }
 }
 
-function normalizarNomeInterno(nome = '') {
-  return nome
-    .split(':')
-    .pop()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^A-Za-z0-9]/g, '')
-    .toUpperCase();
-}
+function writeCachedExternalCatalog(data) {
+  if (typeof window === "undefined" || !Array.isArray(data)) {
+    return;
+  }
 
-function isCamadaInternaAreaProtegida(nome = '') {
-  return [
-    'ASSENTAMENTO',
-    'QUILOMBOLA',
-    'TERRASINDIGENAS',
-    'UNIDADESDECONSERVACAO',
-  ].includes(normalizarNomeInterno(nome));
-}
-
-function isCamadaInternaOculta(nome = '') {
-  return [
-    'EMBARGOIBAMA',
-    'ESTADOS',
-    'APF',
-    'TERRASINDIGENAS',
-    'UNIDADESDECONSERVACAO',
-  ].includes(normalizarNomeInterno(nome));
+  try {
+    window.localStorage.setItem(
+      EXTERNAL_CATALOG_CACHE_KEY,
+      JSON.stringify({
+        savedAt: Date.now(),
+        data,
+      })
+    );
+  } catch (error) {
+    console.warn("Nao foi possivel salvar o cache local do catalogo externo:", error);
+  }
 }
 
 function montarNomeCamadaExterna(camada) {
@@ -121,7 +136,31 @@ function montarNomeCamadaExterna(camada) {
 }
 
 function montarChaveCatalogoExterno(camada = {}) {
+  if (camada.id) {
+    return `id::${camada.id}`;
+  }
+
   return `${camada.typeName || ''}::${camada.titulo || camada.typeName || ''}`;
+}
+
+function mesclarCatalogosExternos(...catalogos) {
+  const mapa = new Map();
+
+  catalogos
+    .filter(Array.isArray)
+    .forEach((catalogo) => {
+      catalogo.forEach((camada) => {
+        const chave = montarChaveCatalogoExterno(camada);
+        const atual = mapa.get(chave) || {};
+
+        mapa.set(chave, {
+          ...atual,
+          ...camada,
+        });
+      });
+    });
+
+  return [...mapa.values()];
 }
 
 function mesclarCamadaExterna(camadaAtual, camadaNova = {}) {
@@ -176,6 +215,12 @@ export default function WebGIS() {
   const [indiceEditando, setIndiceEditando] = useState(null);
 
   const [carLayerBusca, setCarLayerBusca] = useState(null);
+  const [camadasCarregando, setCamadasCarregando] = useState({});
+  const [processingOverlay, setProcessingOverlay] = useState({
+    active: false,
+    title: '',
+    message: '',
+  });
   const sidebarSections = [
     { id: "camadas", label: "Catalogo", icon: "/icons/layers.svg" },
     { id: "fontes", label: "Fontes", shortLabel: "i" },
@@ -209,6 +254,8 @@ export default function WebGIS() {
     arcgisParams: c.arcgisParams ?? {},
     wmsBaseUrl: c.wms,
     wmsParams: c.wmsParams ?? {},
+    wmsCrs: c.wmsCrs ?? null,
+    useProxy: c.useProxy ?? true,
     opacity: c.opacity ?? 1,
     identifyEnabled: c.identifyEnabled ?? false,
     analysisWfsBaseUrl: c.analysisWfsBaseUrl,
@@ -222,7 +269,6 @@ export default function WebGIS() {
     const externasPorChave = new Map(
       camadasExternas.map((camada) => [montarChaveCatalogoExterno(camada), camada])
     );
-    const internas = listaAtual.filter((camada) => !camada.externa);
     const externasExistentes = listaAtual.filter((camada) => camada.externa);
 
     const externasAtualizadas = externasExistentes.map((camada) =>
@@ -236,7 +282,7 @@ export default function WebGIS() {
       (camada) => !chavesJaPresentes.has(montarChaveCatalogoExterno(camada))
     );
 
-    return [...internas, ...externasAtualizadas, ...novasExternas];
+    return [...externasAtualizadas, ...novasExternas];
   };
 
   const obterNomeReferenciaCamada = (camada) => {
@@ -262,44 +308,61 @@ export default function WebGIS() {
 
     aplicarPadraoCamada(layer, estilo, layer._map);
   };
+
+  const atualizarCarregamentoCamada = useCallback((nomeCamada, carregando) => {
+    setCamadasCarregando((estadoAtual) => {
+      if (!nomeCamada) {
+        return estadoAtual;
+      }
+
+      if (!carregando) {
+        if (!estadoAtual[nomeCamada]) {
+          return estadoAtual;
+        }
+
+        const proximoEstado = { ...estadoAtual };
+        delete proximoEstado[nomeCamada];
+        return proximoEstado;
+      }
+
+      if (estadoAtual[nomeCamada]) {
+        return estadoAtual;
+      }
+
+      return {
+        ...estadoAtual,
+        [nomeCamada]: true,
+      };
+    });
+  }, []);
+
+  const showProcessingOverlay = useCallback(({ title, message }) => {
+    setProcessingOverlay({
+      active: true,
+      title: title || 'Processando',
+      message: message || 'Aguarde enquanto concluimos esta etapa.',
+    });
+  }, []);
+
+  const hideProcessingOverlay = useCallback(() => {
+    setProcessingOverlay({
+      active: false,
+      title: '',
+      message: '',
+    });
+  }, []);
   useEffect(() => {
 
     const fetchCamadas = async () => {
+      const cachedCatalog = readCachedExternalCatalog();
+      const catalogoInicial = mesclarCatalogosExternos(
+        camadasExternasFallback,
+        cachedCatalog
+      );
+      const camadasExternasIniciais = montarCamadasExternas(catalogoInicial);
+      setCamadas(camadasExternasIniciais);
 
       try {
-        if (!GEOSERVER_WFS_URL) {
-          throw new Error("GeoServer nao configurado");
-        }
-
-        const res = await fetch(`${GEOSERVER_WFS_URL}?service=WFS&request=GetCapabilities`);
-        const text = await res.text();
-
-        const parser = new DOMParser();
-        const xml = parser.parseFromString(text, "text/xml");
-
-        const nodes = xml.getElementsByTagName("FeatureType");
-
-        const nomes = Array.from(nodes).map(n =>
-          n.getElementsByTagName("Name")[0].textContent
-        );
-
-        const camadasGeoServer = nomes
-          .filter(
-            (nome) =>
-              !isCamadaInternaFPB(nome) &&
-              !isCamadaInternaAreaProtegida(nome) &&
-              !isCamadaInternaOculta(nome)
-          )
-          .map(nome => ({
-            nome,
-            data: null,
-            visivel: false,
-            externa: false
-          }));
-
-        const camadasExternasIniciais = montarCamadasExternas(camadasExternasFallback);
-        setCamadas([...camadasGeoServer, ...camadasExternasIniciais]);
-
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_LAYERS_TIMEOUT_MS);
 
@@ -309,8 +372,13 @@ export default function WebGIS() {
             { signal: controller.signal },
             1
           );
-          const camadasExternas = montarCamadasExternas(externas);
+          const catalogoMesclado = mesclarCatalogosExternos(
+            camadasExternasFallback,
+            externas
+          );
+          const camadasExternas = montarCamadasExternas(catalogoMesclado);
 
+          writeCachedExternalCatalog(catalogoMesclado);
           setCamadas((old) => anexarCamadasExternas(old, camadasExternas));
         } catch (errExternas) {
           if (errExternas?.name !== 'AbortError') {
@@ -319,70 +387,32 @@ export default function WebGIS() {
         } finally {
           clearTimeout(timeoutId);
         }
-
-
-        for (const camada of camadasGeoServer) {
-
-          if (camada.externa) continue;
-
-          const url =
-            `${GEOSERVER_WFS_URL}?service=WFS&version=1.0.0&request=GetFeature` +
-            `&typeName=${camada.nome}&outputFormat=application/json`;
-
-          try {
-
-            const res = await fetch(url);
-            const data = await res.json();
-
-            setCamadas(old =>
-              old.map(c => c.nome === camada.nome ? { ...c, data } : c)
-            );
-
-          } catch (errInterno) {
-
-            console.warn(`⚠️ Erro ao buscar camada ${camada.nome}:`, errInterno);
-
-          }
-
-        }
-
       } catch (err) {
-        console.warn("Nao foi possivel carregar as camadas internas do GeoServer:", err);
-
-        const camadasExternasIniciais = montarCamadasExternas(camadasExternasFallback);
-        setCamadas(camadasExternasIniciais);
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), EXTERNAL_LAYERS_TIMEOUT_MS);
-
-        try {
-          const externas = await fetchJsonWithRetry(
-            EXTERNAL_LAYERS_URL,
-            { signal: controller.signal },
-            1
-          );
-          const camadasExternas = montarCamadasExternas(externas);
-
-          setCamadas((old) => anexarCamadasExternas(old, camadasExternas));
-        } catch (errExternas) {
-          if (errExternas?.name !== "AbortError") {
-            console.warn("Nao foi possivel carregar as camadas externas no momento:", errExternas);
-          }
-        } finally {
-          clearTimeout(timeoutId);
-        }
-
+        console.warn("Nao foi possivel atualizar o catalogo de camadas externas:", err);
       }
 
     };
 
     fetchCamadas();
 
-  }, []);
+  }, [atualizarCarregamentoCamada]);
 
 
 
   const toggleLayer = nome => {
+    const camadaAtual = camadas.find((camada) => camada.nome === nome);
+
+    if (!camadaAtual) {
+      return;
+    }
+
+    const proximoVisivel = !camadaAtual.visivel;
+
+    if (!proximoVisivel) {
+      atualizarCarregamentoCamada(nome, false);
+    } else {
+      atualizarCarregamentoCamada(nome, true);
+    }
 
     setCamadas(old =>
       old.map(c => c.nome === nome ? { ...c, visivel: !c.visivel } : c)
@@ -720,6 +750,7 @@ export default function WebGIS() {
             alternarDesenhoParaExportacao={alternarDesenhoParaExportacao}
             removerTodosDesenhos={removerTodosDesenhos}
             indiceEditando={indiceEditando}
+            camadasCarregando={camadasCarregando}
           />
         )}
 
@@ -780,10 +811,13 @@ export default function WebGIS() {
                 baseUrl={`${config.API_BASE_URL}/proxy/wms`}
                 url={c.wmsBaseUrl}
                 layers={c.wmsLayers || c.typeName || c.nome}
+                crsCode={c.wmsCrs}
+                useProxy={c.useProxy}
                 visivel={c.visivel}
                 minZoom={c.minZoom}
                 opacity={c.opacity}
                 params={c.wmsParams}
+                onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
               />
             );
           }
@@ -801,6 +835,7 @@ export default function WebGIS() {
                 queryParams={c.arcgisParams}
                 onEachFeature={criarHandleEachFeature(nomeReferencia)}
                 style={criarStyleCamada(nomeReferencia)}
+                onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
               />
             );
           }
@@ -825,24 +860,14 @@ export default function WebGIS() {
                 featureFilter={c.featureFilter}
                 onEachFeature={criarHandleEachFeature(nomeReferencia)}
                 style={criarStyleCamada(nomeReferencia)}
+                onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
               />
 
             );
 
           }
 
-          const nomeReferencia = obterNomeReferenciaCamada(c);
-
-          return c.visivel ? (
-
-            <GeoJSON
-              key={c.nome}
-              data={c.data}
-              onEachFeature={criarHandleEachFeature(nomeReferencia)}
-              style={criarStyleCamada(nomeReferencia)}
-            />
-
-          ) : null;
+          return null;
 
         })}
 
@@ -866,6 +891,8 @@ export default function WebGIS() {
           camadas={camadas}
           carLayerBusca={carLayerBusca}
           setCarLayerBusca={setCarLayerBusca}
+          showProcessingOverlay={showProcessingOverlay}
+          hideProcessingOverlay={hideProcessingOverlay}
         />
 
         <BotaoRecentrar />
@@ -875,6 +902,8 @@ export default function WebGIS() {
           drawnItemsRef={drawnItemsRef}
           setCamadasImportadas={setCamadasImportadas}
           setAreaDoImovelLayer={setAreaDoImovelLayer}
+          showProcessingOverlay={showProcessingOverlay}
+          hideProcessingOverlay={hideProcessingOverlay}
         />
 
         <CoordenadasBox />
@@ -890,6 +919,12 @@ export default function WebGIS() {
         onChange={handleImport}
       />
 
+      <ProcessingOverlay
+        active={processingOverlay.active}
+        title={processingOverlay.title}
+        message={processingOverlay.message}
+      />
+
       <footer>© Murilo Tavares</footer>
 
     </div>
@@ -897,3 +932,4 @@ export default function WebGIS() {
   );
 
 }
+

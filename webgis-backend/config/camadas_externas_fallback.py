@@ -50,6 +50,46 @@ ESTADOS_IMOVEIS_SIGEF = [
     ("TO", "Tocantins"),
 ]
 
+EOX_CLOUDLESS_LAYERS = [
+    ("2016", "s2cloudless_3857"),
+    ("2017", "s2cloudless-2017_3857"),
+    ("2018", "s2cloudless-2018_3857"),
+    ("2019", "s2cloudless-2019_3857"),
+    ("2020", "s2cloudless-2020_3857"),
+    ("2021", "s2cloudless-2021_3857"),
+    ("2022", "s2cloudless-2022_3857"),
+    ("2023", "s2cloudless-2023_3857"),
+    ("2024", "s2cloudless-2024_3857"),
+]
+
+INPE_PRODES_MOSAIC_TIMES = [
+    "2000-01-01T00:00:00.000Z",
+    "2001-01-01T00:00:00.000Z",
+    "2002-01-01T00:00:00.000Z",
+    "2003-01-01T00:00:00.000Z",
+    "2004-01-01T00:00:00.000Z",
+    "2005-01-01T00:00:00.000Z",
+    "2006-01-01T00:00:00.000Z",
+    "2007-01-01T00:00:00.000Z",
+    "2008-01-01T00:00:00.000Z",
+    "2009-01-01T00:00:00.000Z",
+    "2010-01-01T00:00:00.000Z",
+    "2011-01-01T00:00:00.000Z",
+    "2012-01-01T00:00:00.000Z",
+    "2013-01-01T00:00:00.000Z",
+    "2014-01-01T00:00:00.000Z",
+    "2015-01-01T00:00:00.000Z",
+    "2016-01-01T00:00:00.000Z",
+    "2017-01-01T00:00:00.000Z",
+    "2018-01-01T00:00:00.000Z",
+    "2019-01-01T00:00:00.000Z",
+    "2020-01-01T00:00:00.000Z",
+    "2021-01-01T00:00:00.000Z",
+    "2022-01-01T00:00:00.000Z",
+    "2023-01-01T00:00:00.000Z",
+    "2024-01-01T00:00:00.000Z",
+]
+
 
 def criar_camadas_imoveis(estados, tema_prefixo, subgrupo_externo):
     return [
@@ -77,6 +117,55 @@ def criar_camadas_areas_atribuidas():
             "unidade de conservacao",
             "areasatribuidas2023_unidade_conservacao",
         ),
+    ]
+
+
+def criar_camadas_eox_cloudless():
+    return [
+        {
+            "id": f"eox-s2cloudless-{ano}",
+            "titulo": f"Sentinel-2 {ano}",
+            "typeName": layer_name,
+            "wmsLayers": layer_name,
+            "wms": "https://tiles.maps.eox.at/wms",
+            "useProxy": False,
+            "minZoom": 1,
+            "opacity": 1,
+            "sourceType": "wms",
+            "grupoExterno": "Mosaicos",
+            "subgrupoExterno": "Sentinel cloudless",
+            "wmsParams": {
+                "format": "image/jpeg",
+                "transparent": False,
+            },
+        }
+        for ano, layer_name in EOX_CLOUDLESS_LAYERS
+    ]
+
+
+def criar_camadas_inpe_prodes_mosaico():
+    return [
+        {
+            "id": f"inpe-prodes-mosaico-{time_value[:4]}",
+            "titulo": f"Mosaico PRODES {time_value[:4]}",
+            "typeName": "temporal_mosaic_legal_amazon",
+            "wmsLayers": "temporal_mosaic_legal_amazon",
+            "wms": "https://terrabrasilis.dpi.inpe.br/geoserver/prodes-legal-amz/wms",
+            "useProxy": False,
+            "minZoom": 4,
+            "opacity": 1,
+            "sourceType": "wms",
+            "grupoExterno": "Mosaicos",
+            "subgrupoExterno": "PRODES Amazônia Legal",
+            "wmsCrs": "EPSG:4326",
+            "wmsParams": {
+                "version": "1.3.0",
+                "format": "image/png",
+                "transparent": False,
+                "time": time_value,
+            },
+        }
+        for time_value in INPE_PRODES_MOSAIC_TIMES
     ]
 
     return [
@@ -175,6 +264,8 @@ CAMADAS_EXTERNAS_FALLBACK = [
         "wfsVersion": "2.0.0",
         "grupoExterno": "Fontes Externas",
     },
+    *criar_camadas_eox_cloudless(),
+    *criar_camadas_inpe_prodes_mosaico(),
     *criar_camadas_areas_atribuidas(),
     *criar_camadas_imoveis(
         ESTADOS_IMOVEIS_SNCI,

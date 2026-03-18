@@ -38,6 +38,10 @@ function identificarFonte(url = "") {
       return "IPHAN";
     }
 
+    if (hostname.includes("tiles.maps.eox.at")) {
+      return "EOX";
+    }
+
     if (hostname.includes("geoservicos.ibge.gov.br")) {
       return "IBGE";
     }
