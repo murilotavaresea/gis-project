@@ -12,8 +12,10 @@ export default function ProcessingOverlay({
   return (
     <div className="processing-overlay" role="status" aria-live="polite" aria-busy="true">
       <div className="processing-card">
-        <span className="processing-spinner" aria-hidden="true" />
-        <strong>{title}</strong>
+        <div className="processing-cardHeader">
+          <span className="processing-spinner" aria-hidden="true" />
+          <strong>{title}</strong>
+        </div>
         <p>{message}</p>
       </div>
     </div>

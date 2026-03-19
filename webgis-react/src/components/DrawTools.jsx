@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import L from "leaflet";
 import tokml from "tokml";
 import * as turf from "@turf/turf";
@@ -6,6 +6,7 @@ import "leaflet-draw";
 import { useMap } from "react-leaflet";
 import BuscaCAR from "./BuscaCAR";
 import GerarAreaBeneficiavel from "./GerarAreaBeneficiavel";
+import RelatorioTemporalTool from "./RelatorioTemporalTool";
 import VerificarSobreposicao from "./VerificarSobreposicao";
 import MapaRelatorio from "./MapaRelatorio";
 
@@ -510,6 +511,13 @@ export default function DrawTools({
           camadasImportadas={camadasImportadas}
           setCamadasImportadas={setCamadasImportadas}
           camadas={camadas}
+          showProcessingOverlay={showProcessingOverlay}
+          hideProcessingOverlay={hideProcessingOverlay}
+        />
+
+        <RelatorioTemporalTool
+          camadas={camadas}
+          carLayerBusca={carLayerBusca}
           showProcessingOverlay={showProcessingOverlay}
           hideProcessingOverlay={hideProcessingOverlay}
         />
