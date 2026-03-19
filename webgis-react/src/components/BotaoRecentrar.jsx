@@ -14,7 +14,7 @@ export default function BotaoRecentrar() {
   };
 
   return (
-    <button className="map-recenterButton" onClick={handleClick} type="button">
+    <button id="tour-map-recenter" className="map-recenterButton" onClick={handleClick} type="button">
       <img src="/icons/centralizar.png" alt="Recentralizar" />
       <span>Recentralizar</span>
     </button>

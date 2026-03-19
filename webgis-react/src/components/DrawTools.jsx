@@ -415,6 +415,7 @@ export default function DrawTools({
       <div id="tool-sidebar">
         <div style={{ position: "relative" }}>
           <button
+            id="tour-tool-draw"
             className={showDrawSubmenu ? "is-active" : ""}
             onClick={toggleDrawSubmenu}
             title="Desenhar"
@@ -446,6 +447,7 @@ export default function DrawTools({
 
         <div style={{ position: "relative" }}>
           <button
+            id="tour-tool-measure"
             className={showMeasureSubmenu || tipoMedicao ? "is-active" : ""}
             onClick={toggleMeasurementPanel}
             title="Medir"
@@ -483,15 +485,16 @@ export default function DrawTools({
           )}
         </div>
 
-        <button onClick={() => fileInputRef.current.click()} title="Importar" type="button">
+        <button id="tour-tool-import" onClick={() => fileInputRef.current.click()} title="Importar" type="button">
           <img src="/icons/file-input.svg" alt="Importar" style={toolIconStyle} />
         </button>
 
-        <button onClick={() => fileInputRefCAR.current.click()} title="Importar CAR" type="button">
+        <button id="tour-tool-import-car" onClick={() => fileInputRefCAR.current.click()} title="Importar CAR" type="button">
           <img src="/icons/novo-car.png" alt="Importar CAR" style={toolIconStyle} />
         </button>
 
         <button
+          id="tour-tool-buscar-car"
           className={mostrarBuscaCAR ? "is-active" : ""}
           onClick={() => setMostrarBuscaCAR((prev) => !prev)}
           title="Buscar CAR"
@@ -545,7 +548,7 @@ export default function DrawTools({
       />
 
       {linhasMedicao.length > 0 && (
-        <div className="painel-medicao">
+      <div className="painel-medicao">
           <strong>Segmentos:</strong>
           <ul style={{ margin: 0, paddingLeft: "1em" }}>
             {linhasMedicao.map((seg, i) => (

@@ -21,6 +21,13 @@ MAPBIOMAS_RESPONSE_CACHE_TTL_SECONDS = 180
 MAPBIOMAS_RESPONSE_CACHE_MAX_ENTRIES = 24
 MAPBIOMAS_RESPONSE_CACHE = OrderedDict()
 MAPBIOMAS_TOKEN_CACHE = {}
+PASSTHROUGH_RESPONSE_HEADERS = (
+    "Cache-Control",
+    "Content-Disposition",
+    "ETag",
+    "Expires",
+    "Last-Modified",
+)
 MAPBIOMAS_ALERTA_API_URL = "https://plataforma.alerta.mapbiomas.org/api/v2/graphql"
 MAPBIOMAS_SIGN_IN_MUTATION = """
 mutation signIn($email: String!, $password: String!) {
@@ -556,6 +563,17 @@ def build_response(content, status, content_type, extra_headers=None):
     return response
 
 
+def extract_passthrough_headers(response):
+    headers = {}
+
+    for header in PASSTHROUGH_RESPONSE_HEADERS:
+        value = response.headers.get(header)
+        if value:
+            headers[header] = value
+
+    return headers
+
+
 def build_cached_response(cached):
     headers = dict(cached.get("extra_headers") or {})
     headers["X-Proxy-Cache"] = "hit"
@@ -569,10 +587,11 @@ def build_cached_response(cached):
 
 def proxy_external_request(base, params, timeout=60):
     response = request_external(base, params, timeout=timeout)
-    return Response(
+    return build_response(
         response.content,
         status=response.status_code,
         content_type=response.headers.get("Content-Type", "application/octet-stream"),
+        extra_headers=extract_passthrough_headers(response),
     )
 
 
@@ -683,6 +702,7 @@ def proxy_wfs():
         extra_headers = {
             "X-Proxy-Transform": "passthrough",
             "X-Proxy-Cache": "miss",
+            **extract_passthrough_headers(response),
         }
         set_cached_wfs_response(
             cache_key,

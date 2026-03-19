@@ -26,6 +26,7 @@ import PainelCamadas from '../components/PainelCamadas';
 import PainelFontesCamadas from '../components/PainelFontesCamadas';
 import PainelAjuda from '../components/PainelAjuda';
 import ProcessingOverlay from '../components/ProcessingOverlay';
+import IntroTour from '../components/IntroTour';
 
 import { aplicarPadraoCamada, getEstiloCamada } from '../utils/estiloCamadas';
 
@@ -49,9 +50,10 @@ const MAP_ZOOM = 5;
 const EXTERNAL_LAYERS_URL = config.EXTERNAL_LAYERS_URL;
 const EXTERNAL_LAYERS_TIMEOUT_MS = 65000;
 const EXTERNAL_LAYERS_RETRY_DELAY_MS = 1800;
-const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v5";
+const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v8";
 const EXTERNAL_CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 const LAYER_ORDER_BASE_ZINDEX = 320;
+const INTRO_TOUR_STORAGE_KEY = "webgis:intro-tour:v1";
 
 function delay(ms) {
   return new Promise((resolve) => {
@@ -223,6 +225,8 @@ export default function WebGIS() {
     title: '',
     message: '',
   });
+  const [introTourOpen, setIntroTourOpen] = useState(false);
+  const [introTourStep, setIntroTourStep] = useState(0);
   const sidebarSections = [
     { id: "camadas", label: "Catalogo", icon: "/icons/layers.svg" },
     { id: "fontes", label: "Fontes", shortLabel: "i" },
@@ -233,6 +237,91 @@ export default function WebGIS() {
     fontes: "Fontes das camadas",
     ajuda: "Ajuda da plataforma",
   };
+  const introTourSteps = useMemo(() => [
+    {
+      title: "Bem-vindo ao WebGIS",
+      description:
+        "Este guia rapido apresenta as principais areas da plataforma. Voce pode avancar passo a passo ou pular quando quiser.",
+      placement: "center",
+    },
+    {
+      selector: "#toggle-sidebar",
+      title: "Abrir e recolher o painel",
+      description:
+        "Use este controle para mostrar ou esconder o painel lateral e ganhar mais area de mapa quando precisar.",
+      placement: "right",
+    },
+    {
+      selector: '[data-tour="sidebar-camadas"]',
+      title: "Catalogo",
+      description:
+        "Aqui voce acessa o catalogo operacional com camadas externas, camadas importadas do CAR e desenhos manuais.",
+      placement: "right",
+    },
+    {
+      selector: "#pc-search-input",
+      title: "Busca de camadas",
+      description:
+        "Digite aqui para localizar rapidamente uma camada pelo nome e ativar so o que interessa na analise.",
+      placement: "right",
+    },
+    {
+      selector: "#layer-control",
+      title: "Camadas ativas",
+      description:
+        "Este painel mostra o que esta visivel no mapa. Voce pode reordenar as camadas para controlar a prioridade visual.",
+      placement: "left",
+    },
+    {
+      selector: "#tool-sidebar",
+      title: "Barra de ferramentas",
+      description:
+        "Nesta barra ficam as acoes principais de desenho, medicao, importacao, busca de CAR e analises espaciais.",
+      placement: "left",
+    },
+    {
+      selector: "#tour-tool-import-car",
+      title: "Importar ZIP do CAR",
+      description:
+        "Use este botao para carregar o arquivo ZIP oficial do CAR. Essa importacao organiza as camadas do imovel e prepara as analises espaciais seguintes.",
+      placement: "left",
+    },
+    {
+      selector: "#tour-tool-buscar-car",
+      title: "Buscar CAR",
+      description:
+        "Use este botao para consultar um imovel direto no servico oficial quando voce nao tiver o arquivo em maos.",
+      placement: "left",
+    },
+    {
+      selector: '[title="Gerar Ãrea BeneficiÃ¡vel"]',
+      title: "Gerar area beneficiavel",
+      description:
+        "Este botao calcula a area beneficiavel a partir das restricoes espaciais. Para funcionar corretamente, voce precisa ter importado antes o arquivo ZIP do CAR para disponibilizar as camadas do imovel.",
+      placement: "left",
+    },
+    {
+      selector: '[title="Verificar sobreposicao com o CAR buscado"]',
+      title: "Verificar sobreposicao",
+      description:
+        "Depois de carregar um CAR, este botao cruza o imovel com as camadas ativas para gerar uma leitura espacial rapida.",
+      placement: "left",
+    },
+    {
+      selector: '[data-tour="sidebar-fontes"]',
+      title: "Fontes das camadas",
+      description:
+        "A aba Fontes consolida a origem dos dados externos para facilitar auditoria, rastreabilidade e conferencia tecnica.",
+      placement: "right",
+    },
+    {
+      selector: '[data-tour="sidebar-ajuda"]',
+      title: "Ajuda da plataforma",
+      description:
+        "Se quiser revisar os fluxos e as ferramentas depois, a aba Ajuda resume o funcionamento do portal.",
+      placement: "right",
+    },
+  ], []);
 
   const montarCamadasExternas = (externas) => externas.map(c => ({
     nome: montarNomeCamadaExterna(c),
@@ -331,6 +420,31 @@ export default function WebGIS() {
     aplicarPadraoCamada(layer, estilo, layer._map);
   };
 
+  const criarPointToLayer = (nomeReferencia) => (_feature, latlng) => {
+    const estilo = getEstiloCamada(String(nomeReferencia || '').toUpperCase());
+    const nomeUpper = String(nomeReferencia || '').toUpperCase();
+
+    if (nomeUpper.includes('AUTO') && nomeUpper.includes('INFRACAO')) {
+      return L.circleMarker(latlng, {
+        radius: 7,
+        color: estilo.color || '#ff7a00',
+        weight: 2,
+        opacity: 1,
+        fillColor: estilo.fillColor || '#ffd166',
+        fillOpacity: 0.95,
+      });
+    }
+
+    return L.circleMarker(latlng, {
+      radius: 6,
+      color: estilo.color || '#2f80ed',
+      weight: 2,
+      opacity: 1,
+      fillColor: estilo.fillColor || estilo.color || '#56ccf2',
+      fillOpacity: 0.9,
+    });
+  };
+
   const atualizarCarregamentoCamada = useCallback((nomeCamada, carregando) => {
     setCamadasCarregando((estadoAtual) => {
       if (!nomeCamada) {
@@ -395,6 +509,62 @@ export default function WebGIS() {
         [nomeCamada]: data,
       };
     });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (window.localStorage.getItem(INTRO_TOUR_STORAGE_KEY) === "done") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIsSidebarOpen(true);
+      setActiveSidebarView("camadas");
+      setIntroTourStep(0);
+      setIntroTourOpen(true);
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!introTourOpen) {
+      return;
+    }
+
+    setIsSidebarOpen(true);
+
+    if (introTourStep <= 9) {
+      setActiveSidebarView("camadas");
+      return;
+    }
+
+    if (introTourStep === 10) {
+      setActiveSidebarView("fontes");
+      return;
+    }
+
+    setActiveSidebarView("ajuda");
+  }, [introTourOpen, introTourStep]);
+
+  const abrirIntroTour = useCallback(() => {
+    setIsSidebarOpen(true);
+    setActiveSidebarView("camadas");
+    setIntroTourStep(0);
+    setIntroTourOpen(true);
+  }, []);
+
+  const encerrarIntroTour = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(INTRO_TOUR_STORAGE_KEY, "done");
+    }
+
+    setIntroTourOpen(false);
+    setIntroTourStep(0);
+    setActiveSidebarView("camadas");
   }, []);
   useEffect(() => {
 
@@ -759,6 +929,7 @@ export default function WebGIS() {
         sections={sidebarSections}
         activeSection={activeSidebarView}
         onChangeSection={setActiveSidebarView}
+        onStartTour={abrirIntroTour}
         title="Atlas WebGIS"
         subtitle="Analise territorial e inteligencia espacial"
         frameTitle={sidebarFrameTitle[activeSidebarView] || "Catalogo operacional"}
@@ -863,10 +1034,12 @@ export default function WebGIS() {
                 baseUrl={config.PROXY_WFS_BASE_URL}
                 queryUrl={c.arcgisQueryUrl}
                 paneKey={c.nome}
+                useProxy={c.useProxy}
                 visivel={c.visivel}
                 minZoom={c.minZoom}
                 zIndex={zIndexPorCamada[c.nome]}
                 queryParams={c.arcgisParams}
+                pointToLayer={criarPointToLayer(nomeReferencia)}
                 onEachFeature={criarHandleEachFeature(nomeReferencia)}
                 style={criarStyleCamada(nomeReferencia)}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
@@ -910,6 +1083,7 @@ export default function WebGIS() {
                 wfsBaseUrl={c.wfsBaseUrl}
                 typeName={c.typeName || c.nome}
                 paneKey={c.nome}
+                useProxy={c.useProxy}
                 visivel={c.visivel}
                 minZoom={c.minZoom}
                 zIndex={zIndexPorCamada[c.nome]}
@@ -919,6 +1093,7 @@ export default function WebGIS() {
                 wfsMaxPages={c.wfsMaxPages}
                 bboxAxisOrder={c.bboxAxisOrder}
                 featureFilter={c.featureFilter}
+                pointToLayer={criarPointToLayer(nomeReferencia)}
                 onEachFeature={criarHandleEachFeature(nomeReferencia)}
                 style={criarStyleCamada(nomeReferencia)}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
@@ -990,6 +1165,16 @@ export default function WebGIS() {
       />
 
       <footer>© Murilo Tavares</footer>
+
+      <IntroTour
+        isOpen={introTourOpen}
+        steps={introTourSteps}
+        currentStepIndex={introTourStep}
+        onPrev={() => setIntroTourStep((step) => Math.max(step - 1, 0))}
+        onNext={() => setIntroTourStep((step) => Math.min(step + 1, introTourSteps.length - 1))}
+        onSkip={encerrarIntroTour}
+        onFinish={encerrarIntroTour}
+      />
 
     </div>
 

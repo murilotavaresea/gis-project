@@ -196,6 +196,7 @@ export default function PainelCamadas({
         <div className="pc-searchRow">
           <div className="pc-search">
             <input
+              id="pc-search-input"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar camada..."

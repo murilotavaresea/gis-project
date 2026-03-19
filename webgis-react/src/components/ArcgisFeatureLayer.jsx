@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
+import {
+  buildExternalRequestUrl,
+  buildRequestModes,
+  shouldStartWithProxy,
+} from "../utils/externalSourceUtils";
 
 const RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
 const LAST_RESPONSE_BY_LAYER = new Map();
@@ -16,8 +21,10 @@ export default function ArcgisFeatureLayer({
   minZoom = 7,
   zIndex = 410,
   style,
+  pointToLayer,
   onEachFeature,
   queryParams = {},
+  useProxy = true,
   onLoadingChange,
   onDataChange,
 }) {
@@ -28,7 +35,16 @@ export default function ArcgisFeatureLayer({
   const lastEnvelopeRef = useRef("");
   const onLoadingChangeRef = useRef(onLoadingChange);
   const onDataChangeRef = useRef(onDataChange);
-  const layerCacheKeyRef = useRef(JSON.stringify({ baseUrl, queryUrl }));
+  const preferProxyRef = useRef(
+    shouldStartWithProxy({ targetUrl: queryUrl, useProxy, proxyBaseUrl: baseUrl })
+  );
+  const layerCacheKeyRef = useRef(
+    JSON.stringify({
+      baseUrl,
+      queryUrl,
+      useProxy: useProxy === false ? "direct-only" : "auto",
+    })
+  );
   const paneName = useMemo(() => buildPaneName(paneKey || queryUrl), [paneKey, queryUrl]);
 
   useEffect(() => {
@@ -40,8 +56,17 @@ export default function ArcgisFeatureLayer({
   }, [onDataChange]);
 
   useEffect(() => {
-    layerCacheKeyRef.current = JSON.stringify({ baseUrl, queryUrl });
-  }, [baseUrl, queryUrl]);
+    layerCacheKeyRef.current = JSON.stringify({
+      baseUrl,
+      queryUrl,
+      useProxy: useProxy === false ? "direct-only" : "auto",
+    });
+    preferProxyRef.current = shouldStartWithProxy({
+      targetUrl: queryUrl,
+      useProxy,
+      proxyBaseUrl: baseUrl,
+    });
+  }, [baseUrl, queryUrl, useProxy]);
 
   useEffect(() => {
     let pane = map.getPane(paneName);
@@ -88,7 +113,6 @@ export default function ArcgisFeatureLayer({
     const where = queryParams.where || "1=1";
 
     const query = new URLSearchParams({
-      base: queryUrl,
       where,
       returnGeometry: "true",
       outFields: "*",
@@ -109,9 +133,12 @@ export default function ArcgisFeatureLayer({
       }
     });
 
-    const url = `${baseUrl}?${query.toString()}`;
+    const requestKey = buildExternalRequestUrl({
+      targetUrl: queryUrl,
+      queryString: query.toString(),
+    });
     const cachedEntry = LAST_RESPONSE_BY_LAYER.get(layerCacheKeyRef.current);
-    if (cachedEntry && cachedEntry.requestKey === url && cachedEntry.expiresAt > Date.now()) {
+    if (cachedEntry && cachedEntry.requestKey === requestKey && cachedEntry.expiresAt > Date.now()) {
       lastEnvelopeRef.current = envelopeKey;
       setData(cachedEntry.data);
       setRenderVersion((prev) => prev + 1);
@@ -121,8 +148,54 @@ export default function ArcgisFeatureLayer({
     }
 
     try {
-      const res = await fetch(url, { signal: abortRef.current.signal });
-      const text = await res.text();
+      const requestModes = buildRequestModes({
+        preferProxy: preferProxyRef.current,
+        useProxy,
+        proxyBaseUrl: baseUrl,
+      });
+      let requestResult = null;
+
+      for (const viaProxy of requestModes) {
+        const requestUrl = buildExternalRequestUrl({
+          targetUrl: queryUrl,
+          queryString: query.toString(),
+          proxyBaseUrl: baseUrl,
+          useProxy: viaProxy,
+        });
+
+        try {
+          const res = await fetch(requestUrl, { signal: abortRef.current.signal });
+          const text = await res.text();
+          const looksLikeXml = text.trim().startsWith("<");
+
+          if (!viaProxy && requestModes.length > 1 && (!res.ok || looksLikeXml)) {
+            continue;
+          }
+
+          requestResult = { res, text, viaProxy };
+          break;
+        } catch (error) {
+          if (error?.name === "AbortError") {
+            throw error;
+          }
+
+          if (!viaProxy && requestModes.length > 1) {
+            continue;
+          }
+
+          throw error;
+        }
+      }
+
+      if (!requestResult) {
+        setData(null);
+        onDataChangeRef.current?.(null);
+        onLoadingChangeRef.current?.(false);
+        return;
+      }
+
+      preferProxyRef.current = requestResult.viaProxy;
+      const { res, text } = requestResult;
 
       if (!res.ok) {
         console.warn(`ArcGIS retornou status ${res.status} para ${queryUrl}.`, text.slice(0, 200));
@@ -156,7 +229,7 @@ export default function ArcgisFeatureLayer({
 
       lastEnvelopeRef.current = envelopeKey;
       LAST_RESPONSE_BY_LAYER.set(layerCacheKeyRef.current, {
-        requestKey: url,
+        requestKey,
         expiresAt: Date.now() + RESPONSE_CACHE_TTL_MS,
         data: json,
       });
@@ -195,7 +268,7 @@ export default function ArcgisFeatureLayer({
       onLoadingChangeRef.current?.(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visivel, queryUrl, baseUrl, minZoom, queryParams]);
+  }, [visivel, queryUrl, baseUrl, minZoom, queryParams, useProxy]);
 
   if (!visivel || !data) return null;
 
@@ -205,6 +278,7 @@ export default function ArcgisFeatureLayer({
       data={data}
       pane={paneName}
       style={style}
+      pointToLayer={pointToLayer}
       onEachFeature={onEachFeature}
     />
   );

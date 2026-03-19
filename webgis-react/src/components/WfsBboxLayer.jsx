@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GeoJSON, useMap } from "react-leaflet";
 import { filtrarFeatureCollection } from "../utils/filtrarFeatureCollection";
+import {
+  buildExternalRequestUrl,
+  buildRequestModes,
+  shouldStartWithProxy,
+} from "../utils/externalSourceUtils";
 
 const RETRY_DELAY_MS = 1800;
 const RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -16,7 +21,16 @@ function delay(ms) {
   });
 }
 
-function buildLayerCacheKey({ baseUrl, wfsBaseUrl, typeName, wfsVersion, wfsPageSize, wfsMaxPages }) {
+function buildLayerCacheKey({
+  baseUrl,
+  wfsBaseUrl,
+  typeName,
+  wfsVersion,
+  wfsPageSize,
+  wfsMaxPages,
+  featureFilter,
+  useProxy,
+}) {
   return JSON.stringify({
     baseUrl,
     wfsBaseUrl,
@@ -24,6 +38,8 @@ function buildLayerCacheKey({ baseUrl, wfsBaseUrl, typeName, wfsVersion, wfsPage
     wfsVersion,
     wfsPageSize: wfsPageSize || null,
     wfsMaxPages: wfsMaxPages || 1,
+    featureFilter: featureFilter || null,
+    useProxy: useProxy === false ? "direct-only" : "auto",
   });
 }
 
@@ -36,6 +52,7 @@ export default function WfsBboxLayer({
   minZoom = 7,
   zIndex = 410,
   style,
+  pointToLayer,
   onEachFeature,
   wfsParams = {},
   wfsVersion = "2.0.0",
@@ -43,6 +60,7 @@ export default function WfsBboxLayer({
   featureFilter = null,
   wfsPageSize = null,
   wfsMaxPages = 1,
+  useProxy = true,
   onLoadingChange,
   onDataChange,
 }) {
@@ -53,8 +71,20 @@ export default function WfsBboxLayer({
   const lastBboxRef = useRef("");
   const onLoadingChangeRef = useRef(onLoadingChange);
   const onDataChangeRef = useRef(onDataChange);
+  const preferProxyRef = useRef(
+    shouldStartWithProxy({ targetUrl: wfsBaseUrl, useProxy, proxyBaseUrl: baseUrl })
+  );
   const layerCacheKeyRef = useRef(
-    buildLayerCacheKey({ baseUrl, wfsBaseUrl, typeName, wfsVersion, wfsPageSize, wfsMaxPages })
+    buildLayerCacheKey({
+      baseUrl,
+      wfsBaseUrl,
+      typeName,
+      wfsVersion,
+      wfsPageSize,
+      wfsMaxPages,
+      featureFilter,
+      useProxy,
+    })
   );
   const paneName = useMemo(() => buildPaneName(paneKey || typeName), [paneKey, typeName]);
 
@@ -66,8 +96,24 @@ export default function WfsBboxLayer({
       wfsVersion,
       wfsPageSize,
       wfsMaxPages,
+      featureFilter,
+      useProxy,
     });
-  }, [baseUrl, wfsBaseUrl, typeName, wfsVersion, wfsPageSize, wfsMaxPages]);
+    preferProxyRef.current = shouldStartWithProxy({
+      targetUrl: wfsBaseUrl,
+      useProxy,
+      proxyBaseUrl: baseUrl,
+    });
+  }, [
+    baseUrl,
+    wfsBaseUrl,
+    typeName,
+    wfsVersion,
+    wfsPageSize,
+    wfsMaxPages,
+    featureFilter,
+    useProxy,
+  ]);
 
   useEffect(() => {
     onLoadingChangeRef.current = onLoadingChange;
@@ -164,7 +210,6 @@ export default function WfsBboxLayer({
 
     const buildQuery = (pageIndex = 0) => {
       const query = new URLSearchParams({
-        base: wfsBaseUrl,
         service: "WFS",
         version: wfsVersion,
         request: "GetFeature",
@@ -189,7 +234,10 @@ export default function WfsBboxLayer({
       return query;
     };
 
-    const firstRequestKey = `${baseUrl}?${buildQuery(0).toString()}`;
+    const firstRequestKey = buildExternalRequestUrl({
+      targetUrl: wfsBaseUrl,
+      queryString: buildQuery(0).toString(),
+    });
     const cachedEntry = LAST_RESPONSE_BY_LAYER.get(layerCacheKeyRef.current);
     if (
       cachedEntry &&
@@ -210,12 +258,61 @@ export default function WfsBboxLayer({
       let collectionType = "FeatureCollection";
 
       for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1) {
-        const url = `${baseUrl}?${buildQuery(pageIndex).toString()}`;
-        const { response: res, text } = await fetchWithRetry(
-          url,
-          { signal: abortRef.current.signal },
-          1
-        );
+        const queryString = buildQuery(pageIndex).toString();
+        const requestModes = buildRequestModes({
+          preferProxy: preferProxyRef.current,
+          useProxy,
+          proxyBaseUrl: baseUrl,
+        });
+        let requestResult = null;
+
+        for (const viaProxy of requestModes) {
+          const requestUrl = buildExternalRequestUrl({
+            targetUrl: wfsBaseUrl,
+            queryString,
+            proxyBaseUrl: baseUrl,
+            useProxy: viaProxy,
+          });
+
+          try {
+            const result = await fetchWithRetry(
+              requestUrl,
+              { signal: abortRef.current.signal },
+              viaProxy ? 1 : 0
+            );
+            const looksLikeXml = result.text.trim().startsWith("<");
+
+            if (!viaProxy && requestModes.length > 1 && (!result.response.ok || looksLikeXml)) {
+              continue;
+            }
+
+            requestResult = {
+              ...result,
+              viaProxy,
+            };
+            break;
+          } catch (error) {
+            if (error?.name === "AbortError") {
+              throw error;
+            }
+
+            if (!viaProxy && requestModes.length > 1) {
+              continue;
+            }
+
+            throw error;
+          }
+        }
+
+        if (!requestResult) {
+          setData(null);
+          onDataChangeRef.current?.(null);
+          onLoadingChangeRef.current?.(false);
+          return;
+        }
+
+        preferProxyRef.current = requestResult.viaProxy;
+        const { response: res, text } = requestResult;
 
         if (!res.ok) {
           console.warn(
@@ -331,6 +428,7 @@ export default function WfsBboxLayer({
     featureFilter,
     wfsPageSize,
     wfsMaxPages,
+    useProxy,
   ]);
 
   if (!visivel || !data) return null;
@@ -341,6 +439,7 @@ export default function WfsBboxLayer({
       data={data}
       pane={paneName}
       style={style}
+      pointToLayer={pointToLayer}
       onEachFeature={onEachFeature}
     />
   );

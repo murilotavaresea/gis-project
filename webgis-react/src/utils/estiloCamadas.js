@@ -241,6 +241,25 @@ export function getEstiloCamada(nome = "") {
     });
   }
 
+  if (nomeUpper.includes("AREA") && nomeUpper.includes("EMBARGADA") && nomeUpper.includes("ICMBIO")) {
+    return criarEstilo({
+      color: "#d94841",
+      fillColor: "#f29f97",
+      weight: 2,
+      fillOpacity: 0.2,
+      dashArray: "6 4",
+    });
+  }
+
+  if (nomeUpper.includes("AUTO") && nomeUpper.includes("INFRACAO") && nomeUpper.includes("ICMBIO")) {
+    return criarEstilo({
+      color: "#d96b00",
+      fillColor: "#ffb347",
+      weight: 2,
+      fillOpacity: 0.24,
+    });
+  }
+
   if (nomeUpper.includes("MAPBIOMAS") && nomeUpper.includes("ALERTA")) {
     return criarEstilo({
       color: "#ff4d36",

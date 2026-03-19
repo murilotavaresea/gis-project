@@ -1,5 +1,6 @@
 import json
 import os
+from hashlib import sha1
 from pathlib import Path
 
 
@@ -23,7 +24,7 @@ def _load_local_env():
 
 _load_local_env()
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from psycopg2 import sql
 from werkzeug.security import generate_password_hash
@@ -71,7 +72,20 @@ app.register_blueprint(auth_bp)
 
 @app.route("/camadas_externas")
 def listar_camadas_externas():
-    return jsonify(camadas_externas)
+    response = jsonify(camadas_externas)
+    response.cache_control.public = True
+    response.cache_control.max_age = 600
+    response.set_etag(
+        sha1(
+            json.dumps(
+                camadas_externas,
+                sort_keys=True,
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+    )
+    response.make_conditional(request)
+    return response
 
 
 @app.route("/atualizar", methods=["GET"])

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import { WMSTileLayer, useMap } from "react-leaflet";
+import {
+  buildExternalRequestUrl,
+  canUseProxy,
+  shouldStartWithProxy,
+} from "../utils/externalSourceUtils";
 
 const WMS_CRS_BY_CODE = {
   "EPSG:3857": L.CRS.EPSG3857,
@@ -28,10 +33,21 @@ export default function ExternalWmsLayer({
 }) {
   const map = useMap();
   const [zoomAtual, setZoomAtual] = useState(map.getZoom());
+  const [useProxyForTiles, setUseProxyForTiles] = useState(() =>
+    shouldStartWithProxy({ targetUrl: url, useProxy, proxyBaseUrl: baseUrl })
+  );
   const pendingTilesRef = useRef(0);
   const onLoadingChangeRef = useRef(onLoadingChange);
-  const shouldUseProxy = Boolean(useProxy && baseUrl && url);
-  const tileUrl = shouldUseProxy ? `${baseUrl}?base=${encodeURIComponent(url)}` : url;
+  const canFallbackToProxy = canUseProxy(useProxy, baseUrl);
+  const tileUrl = useMemo(
+    () =>
+      buildExternalRequestUrl({
+        targetUrl: url,
+        proxyBaseUrl: baseUrl,
+        useProxy: useProxyForTiles,
+      }),
+    [baseUrl, url, useProxyForTiles]
+  );
   const wmsCrs = useMemo(() => WMS_CRS_BY_CODE[crsCode] ?? undefined, [crsCode]);
   const paneName = useMemo(() => buildPaneName(paneKey || layers), [paneKey, layers]);
   const wmsParams = useMemo(
@@ -47,6 +63,12 @@ export default function ExternalWmsLayer({
   useEffect(() => {
     onLoadingChangeRef.current = onLoadingChange;
   }, [onLoadingChange]);
+
+  useEffect(() => {
+    setUseProxyForTiles(
+      shouldStartWithProxy({ targetUrl: url, useProxy, proxyBaseUrl: baseUrl })
+    );
+  }, [baseUrl, url, useProxy]);
 
   useEffect(() => {
     let pane = map.getPane(paneName);
@@ -81,6 +103,7 @@ export default function ExternalWmsLayer({
 
   return (
     <WMSTileLayer
+      key={`${paneName}-${useProxyForTiles ? "proxy" : "direct"}`}
       url={tileUrl}
       layers={layers}
       pane={paneName}
@@ -103,6 +126,14 @@ export default function ExternalWmsLayer({
         },
         tileerror: () => {
           pendingTilesRef.current = Math.max(0, pendingTilesRef.current - 1);
+
+          if (!useProxyForTiles && canFallbackToProxy) {
+            pendingTilesRef.current = 0;
+            setUseProxyForTiles(true);
+            onLoadingChangeRef.current?.(true);
+            return;
+          }
+
           if (pendingTilesRef.current === 0) {
             onLoadingChangeRef.current?.(false);
           }

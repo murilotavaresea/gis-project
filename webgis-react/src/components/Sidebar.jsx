@@ -10,6 +10,7 @@ export default function Sidebar({
   sections = [],
   activeSection = "camadas",
   onChangeSection,
+  onStartTour,
   children,
 }) {
   const [frameOpen, setFrameOpen] = useState(true);
@@ -34,6 +35,7 @@ export default function Sidebar({
                 <button
                   key={section.id}
                   className={`sb-railBtn ${activeSection === section.id ? "active" : ""}`}
+                  data-tour={`sidebar-${section.id}`}
                   type="button"
                   onClick={() => onChangeSection?.(section.id)}
                   title={section.label}
@@ -83,6 +85,16 @@ export default function Sidebar({
 
             <div className="sb-footer">
               <span>Sistema cartografico para analise e monitoramento</span>
+              {onStartTour && (
+                <button
+                  type="button"
+                  className="sb-tourBtn"
+                  data-tour="sidebar-tour"
+                  onClick={onStartTour}
+                >
+                  Tour guiado
+                </button>
+              )}
             </div>
           </div>
         </div>
