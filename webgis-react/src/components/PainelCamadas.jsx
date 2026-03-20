@@ -17,13 +17,14 @@ function ordenarCamadasPorNome(camadas = []) {
   );
 }
 
-function Section({ title, count, defaultOpen = false, children }) {
+function Section({ title, count, defaultOpen = false, level = 0, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  const isNested = level > 0;
 
   return (
-    <div className="pc-section">
+    <div className={`pc-section ${isNested ? "is-nested" : ""}`}>
       <button
-        className="pc-sectionHeader"
+        className={`pc-sectionHeader ${isNested ? "is-nested" : ""}`}
         onClick={() => setOpen(!open)}
         type="button"
       >
@@ -34,7 +35,7 @@ function Section({ title, count, defaultOpen = false, children }) {
         <span className="pc-count">{count}</span>
       </button>
 
-      {open && <div className="pc-sectionBody">{children}</div>}
+      {open && <div className={`pc-sectionBody ${isNested ? "is-nested" : ""}`}>{children}</div>}
     </div>
   );
 }
@@ -70,9 +71,22 @@ function LoadingIndicator() {
 }
 
 function LayerRow({ label, checked, onToggle, right, loading = false }) {
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onToggle?.();
+    }
+  };
+
   return (
     <div className={`pc-layerRow ${loading ? "is-loading" : ""}`}>
-      <div className="pc-layerLeft" onClick={onToggle} role="button" tabIndex={0}>
+      <div
+        className="pc-layerLeft"
+        onClick={onToggle}
+        onKeyDown={handleKeyDown}
+        role="button"
+        tabIndex={0}
+      >
         <span className={`pc-dot ${checked ? "on" : ""}`} />
         <span className="pc-layerName" title={label}>
           {label}
@@ -174,22 +188,18 @@ export default function PainelCamadas({
       }));
   }, [externasFiltradas]);
   const totalAtivas = (camadas || []).filter((camada) => camada.visivel).length;
-  const resumoCards = [
-    { label: "Fontes", valor: camadas.length },
-    { label: "Ativas", valor: totalAtivas },
-    { label: "Externas", valor: camadas.length },
-    { label: "Arquivos", valor: camadasImportadas.length + desenhos.length },
+  const resumoItems = [
+    `${camadas.length} fontes`,
+    `${totalAtivas} ativas`,
+    `${camadasImportadas.length + desenhos.length} arquivos locais`,
   ];
 
   return (
     <div className="pc">
       <div className="pc-header">
-        <div className="pc-overview">
-          {resumoCards.map((item) => (
-            <div key={item.label} className="pc-overviewCard">
-              <strong>{item.valor}</strong>
-              <span>{item.label}</span>
-            </div>
+        <div className="pc-summaryBar" aria-label="Resumo das camadas">
+          {resumoItems.map((item) => (
+            <span key={item}>{item}</span>
           ))}
         </div>
 
@@ -212,6 +222,7 @@ export default function PainelCamadas({
           <Section
             key={grupo.title}
             title={grupo.title}
+            level={0}
             count={
               grupo.camadas.length +
               grupo.subgrupos.reduce((total, subgrupo) => total + subgrupo.camadas.length, 0)
@@ -231,6 +242,7 @@ export default function PainelCamadas({
                 key={`${grupo.title}-${subgrupo.title}`}
                 title={subgrupo.title}
                 count={subgrupo.camadas.length}
+                level={1}
               >
                 {subgrupo.camadas.map((camada) => (
                   <LayerRow
@@ -313,57 +325,73 @@ export default function PainelCamadas({
 
         <div className="pc-list">
           {desenhos.map((desenho, index) => (
-            <div key={`${desenho.tipo}-${index}`} className="pc-layerRow">
-              <div
-                className="pc-layerLeft"
-                onClick={() => alternarDesenhoParaExportacao(index)}
-                role="button"
-                tabIndex={0}
-              >
-                <span className={`pc-dot ${desenho.visivel !== false ? "on" : ""}`} />
-                <span className="pc-layerName" title={desenho.tipo}>
-                  {desenho.tipo}
-                </span>
+            <div key={`${desenho.tipo}-${index}`} className="pc-layerRow pc-layerRow-desenho">
+              <div className="pc-layerMain">
+                <div
+                  className="pc-layerLeft"
+                  onClick={() => alternarDesenhoParaExportacao(index)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      alternarDesenhoParaExportacao(index);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <span className={`pc-dot ${desenho.visivel !== false ? "on" : ""}`} />
+                  <div className="pc-layerText">
+                    <span className="pc-layerName" title={desenho.tipo}>
+                      {desenho.tipo}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pc-layerRight">
+                  <Toggle
+                    checked={desenho.visivel !== false}
+                    onChange={() => alternarDesenhoParaExportacao(index)}
+                  />
+
+                  {indiceEditando === index && (
+                    <button
+                      className="pc-miniBtn"
+                      onClick={finalizarEdicaoIndividual}
+                      title="Finalizar edicao"
+                      type="button"
+                    >
+                      OK
+                    </button>
+                  )}
+
+                  <ActionIconButton
+                    title="Exportar desenho em KML"
+                    onClick={() => exportarDesenhoIndividual(index)}
+                    iconSrc="/icons/download.svg"
+                    size={16}
+                  />
+
+                  <ActionIconButton
+                    title="Editar desenho"
+                    onClick={() => editarDesenhoIndividual(index)}
+                    iconSrc="/icons/pencil-line.svg"
+                    size={16}
+                  />
+
+                  <ActionIconButton
+                    title="Excluir desenho"
+                    onClick={() => removerDesenhoIndividual(index)}
+                    iconSrc="/icons/lixo.png"
+                    size={16}
+                  />
+                </div>
               </div>
 
-              <div className="pc-layerRight">
-                <Toggle
-                  checked={desenho.visivel !== false}
-                  onChange={() => alternarDesenhoParaExportacao(index)}
-                />
-
-                {indiceEditando === index && (
-                  <button
-                    className="pc-miniBtn"
-                    onClick={finalizarEdicaoIndividual}
-                    title="Finalizar edicao"
-                    type="button"
-                  >
-                    OK
-                  </button>
-                )}
-
-                <ActionIconButton
-                  title="Exportar desenho em KML"
-                  onClick={() => exportarDesenhoIndividual(index)}
-                  iconSrc="/icons/download.svg"
-                  size={16}
-                />
-
-                <ActionIconButton
-                  title="Editar desenho"
-                  onClick={() => editarDesenhoIndividual(index)}
-                  iconSrc="/icons/pencil-line.svg"
-                  size={16}
-                />
-
-                <ActionIconButton
-                  title="Excluir desenho"
-                  onClick={() => removerDesenhoIndividual(index)}
-                  iconSrc="/icons/lixo.png"
-                  size={16}
-                />
-              </div>
+              {desenho.resumo?.valor && (
+                <div className={`pc-layerMetaRow ${indiceEditando === index ? "is-live" : ""}`}>
+                  {desenho.resumo.rotulo}: {desenho.resumo.valor}
+                </div>
+              )}
             </div>
           ))}
 

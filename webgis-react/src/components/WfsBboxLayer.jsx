@@ -60,6 +60,8 @@ export default function WfsBboxLayer({
   featureFilter = null,
   wfsPageSize = null,
   wfsMaxPages = 1,
+  bboxPad = 0.2,
+  requestTimeoutMs = 30000,
   useProxy = true,
   onLoadingChange,
   onDataChange,
@@ -188,7 +190,7 @@ export default function WfsBboxLayer({
 
     // Busca uma area um pouco maior que a viewport para evitar "buracos"
     // quando o usuario desloca o mapa em pequenas distancias.
-    const bounds = map.getBounds().pad(0.2);
+    const bounds = map.getBounds().pad(bboxPad);
     const sw = bounds.getSouthWest();
     const ne = bounds.getNorthEast();
     const bboxCoords =
@@ -202,7 +204,11 @@ export default function WfsBboxLayer({
     }
 
     if (abortRef.current) abortRef.current.abort();
-    abortRef.current = new AbortController();
+    const activeController = new AbortController();
+    abortRef.current = activeController;
+    const timeoutId = window.setTimeout(() => {
+      activeController.abort("timeout");
+    }, requestTimeoutMs);
     onLoadingChangeRef.current?.(true);
 
     const typeParamName = String(wfsVersion).startsWith("2.") ? "typenames" : "typeName";
@@ -277,7 +283,7 @@ export default function WfsBboxLayer({
           try {
             const result = await fetchWithRetry(
               requestUrl,
-              { signal: abortRef.current.signal },
+              { signal: activeController.signal },
               viaProxy ? 1 : 0
             );
             const looksLikeXml = result.text.trim().startsWith("<");
@@ -386,11 +392,21 @@ export default function WfsBboxLayer({
       });
       onLoadingChangeRef.current?.(false);
     } catch (err) {
-      if (err.name === "AbortError") return;
+      if (err.name === "AbortError") {
+        if (activeController.signal.reason === "timeout") {
+          console.warn(`Tempo limite ao carregar WFS por BBOX para ${typeName}.`);
+          setData(null);
+          onDataChangeRef.current?.(null);
+          onLoadingChangeRef.current?.(false);
+        }
+        return;
+      }
       console.warn(`Erro ao carregar WFS por BBOX para ${typeName}:`, err);
       setData(null);
       onDataChangeRef.current?.(null);
       onLoadingChangeRef.current?.(false);
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   }
 
@@ -428,6 +444,7 @@ export default function WfsBboxLayer({
     featureFilter,
     wfsPageSize,
     wfsMaxPages,
+    requestTimeoutMs,
     useProxy,
   ]);
 

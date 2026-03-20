@@ -9,6 +9,7 @@ import GerarAreaBeneficiavel from "./GerarAreaBeneficiavel";
 import RelatorioTemporalTool from "./RelatorioTemporalTool";
 import VerificarSobreposicao from "./VerificarSobreposicao";
 import MapaRelatorio from "./MapaRelatorio";
+import { obterResumoDesenho } from "../utils/desenhoMetricas";
 
 function MeasurementPanel({
   tipo,
@@ -251,6 +252,7 @@ export default function DrawTools({
           tipo: tipo.charAt(0).toUpperCase() + tipo.slice(1),
           layer: e.layer,
           visivel: true,
+          resumo: obterResumoDesenho(e.layer),
         },
       ]);
     });

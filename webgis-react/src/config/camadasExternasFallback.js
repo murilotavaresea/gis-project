@@ -52,7 +52,6 @@ const ESTADOS_IMOVEIS_SIGEF = [
 
 const EOX_CLOUDLESS_LAYERS = [
   ["2016", "s2cloudless_3857"],
-  ["2017", "s2cloudless-2017_3857"],
   ["2018", "s2cloudless-2018_3857"],
   ["2019", "s2cloudless-2019_3857"],
   ["2020", "s2cloudless-2020_3857"],

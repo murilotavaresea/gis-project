@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from hashlib import sha1
 from pathlib import Path
 
@@ -39,19 +40,21 @@ from routes.importar_car import importar_car_bp
 
 
 def _load_allowed_origins():
-    origins = {
+    origins = [
+        re.compile(r"^http://localhost(:\d+)?$"),
+        re.compile(r"^http://127\.0\.0\.1(:\d+)?$"),
         "http://localhost:3000",
         "https://gis-project-azsp.onrender.com",
         "https://gis-reactb.onrender.com",
-    }
+    ]
 
     extra_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
     for origin in extra_origins.split(","):
         origin = origin.strip()
         if origin:
-            origins.add(origin)
+            origins.append(origin)
 
-    return sorted(origins)
+    return origins
 
 
 app = Flask(__name__)

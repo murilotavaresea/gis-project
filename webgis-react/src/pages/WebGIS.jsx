@@ -42,6 +42,8 @@ import MapbiomasAlertLayer from "../components/MapbiomasAlertLayer";
 import camadasExternasFallback from "../config/camadasExternasFallback";
 import config from "../config";
 import exportarLayerComoKml from "../utils/exportarLayerComoKml";
+import { obterResumoDesenho } from "../utils/desenhoMetricas";
+import formatarPopupAtributos from "../utils/formatarPopupAtributos";
 
 window.L = L;
 
@@ -50,7 +52,7 @@ const MAP_ZOOM = 5;
 const EXTERNAL_LAYERS_URL = config.EXTERNAL_LAYERS_URL;
 const EXTERNAL_LAYERS_TIMEOUT_MS = 65000;
 const EXTERNAL_LAYERS_RETRY_DELAY_MS = 1800;
-const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v8";
+const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v13";
 const EXTERNAL_CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 const LAYER_ORDER_BASE_ZINDEX = 320;
 const INTRO_TOUR_STORAGE_KEY = "webgis:intro-tour:v1";
@@ -146,6 +148,18 @@ function montarChaveCatalogoExterno(camada = {}) {
   return `${camada.typeName || ''}::${camada.titulo || camada.typeName || ''}`;
 }
 
+function isCatalogLayerBlocked(camada = {}) {
+  const id = String(camada.id || "").trim().toLowerCase();
+  const typeName = String(camada.typeName || "").trim().toLowerCase();
+  const titulo = String(camada.titulo || "").trim().toLowerCase();
+
+  return (
+    id === "eox-s2cloudless-2017" ||
+    typeName === "s2cloudless-2017_3857" ||
+    titulo === "sentinel-2 2017"
+  );
+}
+
 function mesclarCatalogosExternos(...catalogos) {
   const mapa = new Map();
 
@@ -153,6 +167,10 @@ function mesclarCatalogosExternos(...catalogos) {
     .filter(Array.isArray)
     .forEach((catalogo) => {
       catalogo.forEach((camada) => {
+        if (isCatalogLayerBlocked(camada)) {
+          return;
+        }
+
         const chave = montarChaveCatalogoExterno(camada);
         const atual = mapa.get(chave) || {};
 
@@ -202,6 +220,8 @@ export default function WebGIS() {
   const drawnItemsRef = useRef(new L.FeatureGroup());
   const fileInputRef = useRef(null);
   const fileInputRefCAR = useRef(null);
+  const desenhoMonitorIntervalRef = useRef(null);
+  const desenhoEditandoLayerRef = useRef(null);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeSidebarView, setActiveSidebarView] = useState("camadas");
@@ -340,6 +360,8 @@ export default function WebGIS() {
     wfsVersion: c.wfsVersion ?? '2.0.0',
     wfsPageSize: c.wfsPageSize ?? null,
     wfsMaxPages: c.wfsMaxPages ?? 1,
+    bboxPad: c.bboxPad ?? 0.2,
+    requestTimeoutMs: c.requestTimeoutMs ?? 30000,
     bboxAxisOrder: c.bboxAxisOrder ?? 'lonlat',
     arcgisQueryUrl: c.arcgisQueryUrl,
     arcgisParams: c.arcgisParams ?? {},
@@ -511,6 +533,60 @@ export default function WebGIS() {
     });
   }, []);
 
+  const atualizarResumoDesenho = useCallback((layerAlvo) => {
+    if (!layerAlvo) {
+      return;
+    }
+
+    setDesenhos((estadoAtual) => {
+      const indice = estadoAtual.findIndex((desenho) => desenho.layer === layerAlvo);
+
+      if (indice === -1) {
+        return estadoAtual;
+      }
+
+      const resumo = obterResumoDesenho(layerAlvo);
+      const desenhoAtual = estadoAtual[indice];
+
+      if (
+        desenhoAtual?.resumo?.rotulo === resumo?.rotulo &&
+        desenhoAtual?.resumo?.valor === resumo?.valor
+      ) {
+        return estadoAtual;
+      }
+
+      const proximoEstado = [...estadoAtual];
+      proximoEstado[indice] = {
+        ...desenhoAtual,
+        resumo,
+      };
+      return proximoEstado;
+    });
+  }, []);
+
+  const pararMonitoramentoDesenho = useCallback(() => {
+    if (desenhoMonitorIntervalRef.current) {
+      window.clearInterval(desenhoMonitorIntervalRef.current);
+      desenhoMonitorIntervalRef.current = null;
+    }
+
+    desenhoEditandoLayerRef.current = null;
+  }, []);
+
+  const iniciarMonitoramentoDesenho = useCallback((layerAlvo) => {
+    if (!layerAlvo) {
+      return;
+    }
+
+    pararMonitoramentoDesenho();
+    desenhoEditandoLayerRef.current = layerAlvo;
+    atualizarResumoDesenho(layerAlvo);
+
+    desenhoMonitorIntervalRef.current = window.setInterval(() => {
+      atualizarResumoDesenho(layerAlvo);
+    }, 150);
+  }, [atualizarResumoDesenho, pararMonitoramentoDesenho]);
+
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
@@ -529,6 +605,8 @@ export default function WebGIS() {
 
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => () => pararMonitoramentoDesenho(), [pararMonitoramentoDesenho]);
 
   useEffect(() => {
     if (!introTourOpen) {
@@ -734,6 +812,11 @@ export default function WebGIS() {
     const desenho = desenhos[index];
 
     if (desenho && desenho.layer) {
+      if (desenho.layer === desenhoEditandoLayerRef.current) {
+        desenho.layer.editing?.disable?.();
+        pararMonitoramentoDesenho();
+        setIndiceEditando(null);
+      }
 
       drawnItemsRef.current.removeLayer(desenho.layer);
 
@@ -751,7 +834,15 @@ export default function WebGIS() {
 
     if (!desenho?.layer?.editing) return;
 
+    if (indiceEditando !== null && indiceEditando !== index) {
+      const desenhoAnterior = desenhos[indiceEditando];
+      desenhoAnterior?.layer?.editing?.disable?.();
+    }
+
+    pararMonitoramentoDesenho();
+
     desenho.layer.editing.enable();
+    iniciarMonitoramentoDesenho(desenho.layer);
 
     setIndiceEditando(index);
 
@@ -766,6 +857,8 @@ export default function WebGIS() {
     const desenho = desenhos[indiceEditando];
 
     desenho?.layer?.editing?.disable();
+    atualizarResumoDesenho(desenho?.layer);
+    pararMonitoramentoDesenho();
 
     setIndiceEditando(null);
 
@@ -791,6 +884,8 @@ export default function WebGIS() {
         drawnItemsRef.current.removeLayer(desenho.layer);
 
         if (indiceEditando === index) {
+          pararMonitoramentoDesenho();
+          atualizarResumoDesenho(desenho.layer);
           setIndiceEditando(null);
         }
       }
@@ -808,6 +903,9 @@ export default function WebGIS() {
 
 
   const removerTodosDesenhos = () => {
+
+    pararMonitoramentoDesenho();
+    setIndiceEditando(null);
 
     desenhos.forEach(d => {
 
@@ -887,15 +985,30 @@ export default function WebGIS() {
 
 
 
-  const adicionarCamadaAoMapa = (geojson, nomeOriginal = 'Importado') => {
+  const adicionarCamadaAoMapa = useCallback((geojson, nomeOriginal = 'Importado', options = {}) => {
+    const {
+      style,
+      pointToLayer,
+      fitBounds = true,
+      replaceByName = false,
+    } = options;
 
-    const layer = new L.GeoJSON(geojson);
+    const layer = new L.GeoJSON(geojson, {
+      style,
+      pointToLayer,
+      onEachFeature: (feature, leafletLayer) => {
+        const popupContent = formatarPopupAtributos(feature);
+        if (popupContent) {
+          leafletLayer.bindPopup(popupContent);
+        }
+      },
+    });
 
     drawnItemsRef.current.addLayer(layer);
 
     const bounds = layer.getBounds();
 
-    if (bounds.isValid()) {
+    if (fitBounds && bounds.isValid()) {
 
       const map = drawnItemsRef.current._map;
 
@@ -904,8 +1017,18 @@ export default function WebGIS() {
     }
 
     setCamadasImportadas(prev => [
+      ...(
+        replaceByName
+          ? prev.filter((camada) => {
+              if (camada.nome !== nomeOriginal) {
+                return true;
+              }
 
-      ...prev,
+              drawnItemsRef.current.removeLayer(camada.layer);
+              return false;
+            })
+          : prev
+      ),
 
       {
         nome: nomeOriginal,
@@ -915,13 +1038,11 @@ export default function WebGIS() {
 
     ]);
 
-  };
-
-
+  }, []);
 
   return (
 
-    <div className="map-shell">
+    <div className={`map-shell ${isSidebarOpen ? "" : "sidebar-collapsed"}`.trim()}>
 
       <Sidebar
         isOpen={isSidebarOpen}
@@ -1091,6 +1212,8 @@ export default function WebGIS() {
                 wfsVersion={c.wfsVersion}
                 wfsPageSize={c.wfsPageSize}
                 wfsMaxPages={c.wfsMaxPages}
+                bboxPad={c.bboxPad}
+                requestTimeoutMs={c.requestTimeoutMs}
                 bboxAxisOrder={c.bboxAxisOrder}
                 featureFilter={c.featureFilter}
                 pointToLayer={criarPointToLayer(nomeReferencia)}

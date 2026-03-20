@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 
 export default function Sidebar({
   isOpen,
@@ -13,8 +13,6 @@ export default function Sidebar({
   onStartTour,
   children,
 }) {
-  const [frameOpen, setFrameOpen] = useState(true);
-
   return (
     <div className={isOpen ? "" : "sidebar-hidden"}>
       <button
@@ -67,19 +65,9 @@ export default function Sidebar({
               <div className="sb-frame">
                 <div className="sb-frameHeader">
                   <div className="sb-frameTitle">{frameTitle}</div>
-
-                  <button
-                    className="sb-frameToggle"
-                    type="button"
-                    onClick={() => setFrameOpen((v) => !v)}
-                    aria-label={frameOpen ? "Recolher secao" : "Expandir secao"}
-                    title={frameOpen ? "Recolher" : "Expandir"}
-                  >
-                    <span className={`sb-chevron ${frameOpen ? "open" : ""}`}>{">"}</span>
-                  </button>
                 </div>
 
-                {frameOpen && <div className="sb-frameBody">{children}</div>}
+                <div className="sb-frameBody">{children}</div>
               </div>
             </div>
 

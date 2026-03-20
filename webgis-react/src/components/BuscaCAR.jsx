@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import axios from "axios";
 import L from "leaflet";
 import tokml from "tokml";
+import formatarPopupAtributos from "../utils/formatarPopupAtributos";
 
 export default function BuscaCAR({
   map,
@@ -65,7 +66,10 @@ export default function BuscaCAR({
         },
         onEachFeature: (feature, geoLayer) => {
           const props = feature.properties || {};
-          geoLayer.bindPopup(`<b>${props.inscricaocar || ""}</b><br>${props.municipio || ""}`);
+          geoLayer.bindPopup(
+            formatarPopupAtributos(feature) ||
+              `<b>${props.inscricaocar || props.cod_imovel || ""}</b><br>${props.municipio || ""}`
+          );
         },
       });
 

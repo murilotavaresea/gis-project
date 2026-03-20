@@ -89,6 +89,30 @@ function buildTooltipPosition({ rect, tooltipWidth, tooltipHeight, placement }) 
   };
 }
 
+function buildArrowStyle({ rect, placement, tooltipPosition, tooltipSize }) {
+  if (!rect || !tooltipSize.width || !tooltipSize.height) {
+    return undefined;
+  }
+
+  const targetCenterX = rect.left + rect.width / 2;
+  const targetCenterY = rect.top + rect.height / 2;
+
+  switch (placement) {
+    case "left":
+    case "right":
+      return {
+        top: `${clamp(targetCenterY - tooltipPosition.top - 9, 12, tooltipSize.height - 30)}px`,
+      };
+    case "top":
+    case "bottom":
+      return {
+        left: `${clamp(targetCenterX - tooltipPosition.left - 9, 12, tooltipSize.width - 30)}px`,
+      };
+    default:
+      return undefined;
+  }
+}
+
 export default function IntroTour({
   isOpen,
   steps = [],
@@ -101,6 +125,7 @@ export default function IntroTour({
   const tooltipRef = useRef(null);
   const [targetRect, setTargetRect] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ left: 0, top: 0 });
+  const [tooltipSize, setTooltipSize] = useState({ width: 0, height: 0 });
 
   const currentStep = steps[currentStepIndex] || null;
   const isLastStep = currentStepIndex >= steps.length - 1;
@@ -137,6 +162,10 @@ export default function IntroTour({
       }
 
       const placement = currentStep.placement || "right";
+      setTooltipSize({
+        width: tooltipNode.offsetWidth,
+        height: tooltipNode.offsetHeight,
+      });
       setTooltipPosition(
         buildTooltipPosition({
           rect,
@@ -168,6 +197,12 @@ export default function IntroTour({
   }
 
   const placement = currentStep.placement || "right";
+  const arrowStyle = buildArrowStyle({
+    rect: targetRect,
+    placement,
+    tooltipPosition,
+    tooltipSize,
+  });
 
   return (
     <>
@@ -202,7 +237,13 @@ export default function IntroTour({
         aria-modal="true"
         aria-label={currentStep.title}
       >
-        {targetRect && <div className={`tour-arrow placement-${placement}`} aria-hidden="true" />}
+        {targetRect && (
+          <div
+            className={`tour-arrow placement-${placement}`}
+            style={arrowStyle}
+            aria-hidden="true"
+          />
+        )}
 
         <div className="tour-stepMeta">
           <span>Tutorial do portal</span>
