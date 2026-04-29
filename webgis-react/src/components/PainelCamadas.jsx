@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import formatarNomeCamada from "../utils/formatarNomeCamada";
+import { agruparCamadasImportadasPorCAR } from "../utils/carLayers";
 
 const collator = new Intl.Collator("pt-BR", { sensitivity: "base" });
 
@@ -128,12 +129,35 @@ export default function PainelCamadas({
     const q = normalizar(busca);
 
     return arr.filter((camada) => {
-      const alvo = `${camada.nome || ""} ${camada.titulo || ""}`;
+      const alvo = `${camada.nome || ""} ${camada.titulo || ""} ${camada.rotulo || ""} ${camada.carCodigo || ""}`;
       return normalizar(alvo).includes(q);
     });
   };
 
   const externasFiltradas = filtrar(camadas || []);
+  const importadasFiltradas = useMemo(() => {
+    if (!busca.trim()) {
+      return camadasImportadas || [];
+    }
+
+    const q = normalizar(busca);
+    return (camadasImportadas || []).filter((camada) => {
+      const nomeFormatado = formatarNomeCAR ? formatarNomeCAR(camada.nome || "") : "";
+      const alvo = [
+        camada.nome || "",
+        camada.titulo || "",
+        camada.rotulo || "",
+        camada.carCodigo || "",
+        nomeFormatado,
+      ].join(" ");
+
+      return normalizar(alvo).includes(q);
+    });
+  }, [busca, camadasImportadas, formatarNomeCAR]);
+  const gruposImportados = useMemo(
+    () => agruparCamadasImportadasPorCAR(importadasFiltradas),
+    [importadasFiltradas]
+  );
   const gruposExternos = useMemo(() => {
     const gruposMap = new Map();
     const ordemGrupos = ["Alertas", "Mosaicos", "Fontes Externas", "Imoveis"];
@@ -266,7 +290,7 @@ export default function PainelCamadas({
         <div className="pc-rowHeader">
           <div>
             <div className="pc-blockTitle">Importadas (CAR)</div>
-            <div className="pc-muted">Camadas importadas</div>
+            <div className="pc-muted">Agrupadas por CAR</div>
           </div>
           <ActionIconButton
             title="Remover todas as camadas CAR"
@@ -277,33 +301,43 @@ export default function PainelCamadas({
         </div>
 
         <div className="pc-list">
-          {camadasImportadas.map((camada, index) => (
-            <LayerRow
-              key={`${camada.nome}-${index}`}
-              label={formatarNomeCAR ? formatarNomeCAR(camada.nome) : camada.nome || "Camada importada"}
-              checked={!!camada.visivel}
-              onToggle={() => toggleCamadaImportada(camada.nome)}
-              right={
-                <>
-                  {camada.exportavel && (
-                    <ActionIconButton
-                      title="Exportar camada em KML"
-                      onClick={() => exportarCamadaImportada(index)}
-                      iconSrc="/icons/download.svg"
-                      size={16}
-                    />
-                  )}
-                  <ActionIconButton
-                    title="Remover camada"
-                    onClick={() => removerCamadaImportada(index)}
-                    iconSrc="/icons/lixo.png"
-                    size={16}
-                  />
-                </>
-              }
-            />
+          {gruposImportados.map((grupo) => (
+            <Section
+              key={grupo.id}
+              title={grupo.carCodigo || grupo.title}
+              count={grupo.camadas.length}
+              level={0}
+              defaultOpen={true}
+            >
+              {grupo.camadas.map((camada) => (
+                <LayerRow
+                  key={camada.id || camada.nome}
+                  label={camada.rotulo || (formatarNomeCAR ? formatarNomeCAR(camada.nome) : camada.nome || "Camada importada")}
+                  checked={!!camada.visivel}
+                  onToggle={() => toggleCamadaImportada(camada.id)}
+                  right={
+                    <>
+                      {camada.exportavel && (
+                        <ActionIconButton
+                          title="Exportar camada em KML"
+                          onClick={() => exportarCamadaImportada(camada.id)}
+                          iconSrc="/icons/download.svg"
+                          size={16}
+                        />
+                      )}
+                      <ActionIconButton
+                        title="Remover camada"
+                        onClick={() => removerCamadaImportada(camada.id)}
+                        iconSrc="/icons/lixo.png"
+                        size={16}
+                      />
+                    </>
+                  }
+                />
+              ))}
+            </Section>
           ))}
-          {camadasImportadas.length === 0 && (
+          {importadasFiltradas.length === 0 && (
             <div className="pc-empty">Nenhuma camada CAR importada ainda.</div>
           )}
         </div>

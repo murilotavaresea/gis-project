@@ -2,6 +2,10 @@ import { useMap } from "react-leaflet";
 import L from "leaflet";
 import config from "../config";
 import { isTemaRemanescenteVegetacaoNativa } from "../utils/coberturaSoloCAR";
+import {
+  criarRegistroCamadaImportada,
+  extrairCodigoCARDeGeoJSON,
+} from "../utils/carLayers";
 
 const appMarkerIcon = L.icon({
   iconUrl: "/icons/map-pin.svg",
@@ -45,8 +49,15 @@ export default function ImportadorCAR({
       });
 
       const data = await response.json();
+      const entradas = Object.entries(data);
+      const geojsonAreaDoImovel =
+        entradas.find(([filename]) => filename.includes("Area_do_Imovel"))?.[1] || null;
+      const codigoCARImportado =
+        extrairCodigoCARDeGeoJSON(geojsonAreaDoImovel) ||
+        entradas.map(([, geojson]) => extrairCodigoCARDeGeoJSON(geojson)).find(Boolean) ||
+        "";
 
-      Object.entries(data).forEach(([filename, geojson]) => {
+      entradas.forEach(([filename, geojson]) => {
         if (!geojson.features) {
           console.warn(`Erro ao importar ${filename}:`, geojson.error);
           return;
@@ -93,7 +104,13 @@ export default function ImportadorCAR({
 
         setCamadasImportadas((prev) => [
           ...prev,
-          { nome: filename, layer, visivel: true }
+          criarRegistroCamadaImportada({
+            nome: filename,
+            layer,
+            visivel: true,
+            carCodigo: codigoCARImportado,
+            origem: "car_zip",
+          }),
         ]);
 
         if (filename.includes("Area_do_Imovel")) {

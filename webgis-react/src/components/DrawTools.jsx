@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import tokml from "tokml";
 import * as turf from "@turf/turf";
@@ -79,6 +79,9 @@ export default function DrawTools({
   const map = useMap();
   const measurementLayersRef = useRef([]);
   const measurementCreatedHandlerRef = useRef(null);
+  const toolSidebarRef = useRef(null);
+  const measurementPanelRef = useRef(null);
+  const painelMedicaoRef = useRef(null);
 
   const [showDrawSubmenu, setShowDrawSubmenu] = useState(false);
   const [showMeasureSubmenu, setShowMeasureSubmenu] = useState(false);
@@ -98,6 +101,25 @@ export default function DrawTools({
   const mapaRelatorioTimeoutRef = useRef(null);
 
   const toolIconStyle = { width: "22px", height: "22px" };
+
+  useEffect(() => {
+    const nodes = [
+      toolSidebarRef.current,
+      measurementPanelRef.current,
+      painelMedicaoRef.current,
+    ].filter(Boolean);
+
+    nodes.forEach((node) => {
+      L.DomEvent.disableClickPropagation(node);
+      L.DomEvent.disableScrollPropagation(node);
+    });
+
+    return () => {
+      nodes.forEach((node) => {
+        L.DomEvent.off(node);
+      });
+    };
+  }, [showDrawSubmenu, showMeasureSubmenu, tipoMedicao, linhasMedicao.length]);
 
   const limparMapaRelatorio = () => {
     if (mapaRelatorioTimeoutRef.current) {
@@ -415,7 +437,7 @@ export default function DrawTools({
 
   return (
     <>
-      <div id="tool-sidebar">
+      <div id="tool-sidebar" ref={toolSidebarRef}>
         <div style={{ position: "relative" }}>
           <button
             id="tour-tool-draw"
@@ -535,16 +557,18 @@ export default function DrawTools({
       </div>
 
       {tipoMedicao && (
-        <MeasurementPanel
-          tipo={tipoMedicao}
-          unidade={unidade}
-          setUnidade={setUnidade}
-          resultado={resultado}
-          medindo={medindo}
-          onStart={() => startMeasurement(tipoMedicao)}
-          onReset={resetMeasurement}
-          onClose={() => stopMeasurementMode({ clearResults: true, closePanel: true })}
-        />
+        <div ref={measurementPanelRef}>
+          <MeasurementPanel
+            tipo={tipoMedicao}
+            unidade={unidade}
+            setUnidade={setUnidade}
+            resultado={resultado}
+            medindo={medindo}
+            onStart={() => startMeasurement(tipoMedicao)}
+            onReset={resetMeasurement}
+            onClose={() => stopMeasurementMode({ clearResults: true, closePanel: true })}
+          />
+        </div>
       )}
 
       <BuscaCAR
@@ -558,7 +582,7 @@ export default function DrawTools({
       />
 
       {linhasMedicao.length > 0 && (
-      <div className="painel-medicao">
+      <div className="painel-medicao" ref={painelMedicaoRef}>
           <strong>Segmentos:</strong>
           <ul style={{ margin: 0, paddingLeft: "1em" }}>
             {linhasMedicao.map((seg, i) => (

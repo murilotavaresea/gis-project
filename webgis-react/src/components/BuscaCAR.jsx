@@ -1,8 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import L from "leaflet";
 import tokml from "tokml";
 import formatarPopupAtributos from "../utils/formatarPopupAtributos";
+import { normalizarCodigoCAR } from "../utils/carLayers";
 
 export default function BuscaCAR({
   map,
@@ -15,13 +16,34 @@ export default function BuscaCAR({
 }) {
   const [codigoCAR, setCodigoCAR] = useState("");
   const [buscando, setBuscando] = useState(false);
+  const painelRef = useRef(null);
   const carLayerRef = useRef(null);
 
+  useEffect(() => {
+    if (!visivel || !painelRef.current) {
+      return undefined;
+    }
+
+    const node = painelRef.current;
+    L.DomEvent.disableClickPropagation(node);
+    L.DomEvent.disableScrollPropagation(node);
+
+    return () => {
+      L.DomEvent.off(node);
+    };
+  }, [visivel]);
+
   const buscarCAR = async () => {
-    if (!codigoCAR) return;
+    const codigoNormalizado = normalizarCodigoCAR(codigoCAR);
+    if (!codigoNormalizado) return;
+
+    if (codigoNormalizado !== codigoCAR) {
+      setCodigoCAR(codigoNormalizado);
+    }
+
     setBuscando(true);
 
-    const uf = codigoCAR.substring(0, 2).toLowerCase();
+    const uf = codigoNormalizado.substring(0, 2).toLowerCase();
     const ufsValidas = [
       "ac", "al", "am", "ap", "ba", "ce", "df", "es", "go", "ma",
       "mg", "ms", "mt", "pa", "pb", "pe", "pi", "pr", "rj", "rn",
@@ -39,7 +61,7 @@ export default function BuscaCAR({
     const url =
       `${wfsUrl}?service=WFS&version=1.0.0&request=GetFeature` +
       `&typeName=${typeName}&outputFormat=application/json` +
-      `&CQL_FILTER=cod_imovel='${codigoCAR}'`;
+      `&CQL_FILTER=cod_imovel='${codigoNormalizado}'`;
 
     try {
       showProcessingOverlay?.({
@@ -119,7 +141,11 @@ export default function BuscaCAR({
   };
 
   return (
-    <div className="painel-busca-car" style={{ display: visivel ? "block" : "none" }}>
+    <div
+      ref={painelRef}
+      className="painel-busca-car"
+      style={{ display: visivel ? "block" : "none" }}
+    >
       <div className="topo">
         <strong>Buscar CAR</strong>
         <button className="fechar" onClick={onClose} type="button">
@@ -127,21 +153,28 @@ export default function BuscaCAR({
         </button>
       </div>
 
-      <input
-        type="text"
-        placeholder="Digite o codigo do CAR"
-        value={codigoCAR}
-        onChange={(e) => setCodigoCAR(e.target.value)}
-      />
-      <button onClick={buscarCAR} disabled={buscando} type="button">
-        {buscando ? "Buscando..." : "Buscar"}
-      </button>
-      <button onClick={limparCAR} disabled={!carLayerRef.current} type="button">
-        Limpar
-      </button>
-      <button onClick={exportarCAR} disabled={!carLayerRef.current} type="button">
-        Exportar
-      </button>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          buscarCAR();
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Digite o codigo do CAR"
+          value={codigoCAR}
+          onChange={(e) => setCodigoCAR(normalizarCodigoCAR(e.target.value))}
+        />
+        <button disabled={buscando} type="submit">
+          {buscando ? "Buscando..." : "Buscar"}
+        </button>
+        <button onClick={limparCAR} disabled={!carLayerRef.current} type="button">
+          Limpar
+        </button>
+        <button onClick={exportarCAR} disabled={!carLayerRef.current} type="button">
+          Exportar
+        </button>
+      </form>
     </div>
   );
 }

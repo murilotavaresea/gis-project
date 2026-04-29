@@ -1,8 +1,13 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import * as turf from "@turf/turf";
 import config from "../config";
 import { filtrarCoberturaSoloParaRemanescente } from "../utils/coberturaSoloCAR";
+import {
+  agruparCamadasImportadasPorCAR,
+  criarRegistroCamadaImportada,
+  normalizarCodigoCAR,
+} from "../utils/carLayers";
 
 const UFS_VALIDAS = new Set([
   "AC",
@@ -199,6 +204,14 @@ async function buscarApfExterna(featureImovel, camadas = []) {
   return geojson;
 }
 
+function obterCamadaDoGrupo(grupo, tipoCamada) {
+  return grupo?.camadas?.find((camada) => camada?.tipoCamada === tipoCamada) || null;
+}
+
+function obterTituloGrupo(grupo, indice = 0) {
+  return grupo?.carCodigo || `CAR ${indice + 1}`;
+}
+
 export default function GerarAreaBeneficiavel({
   map,
   drawnItemsRef,
@@ -208,25 +221,63 @@ export default function GerarAreaBeneficiavel({
   showProcessingOverlay,
   hideProcessingOverlay,
 }) {
-  const gerar = async () => {
+  const [painelAberto, setPainelAberto] = useState(false);
+  const [grupoSelecionadoId, setGrupoSelecionadoId] = useState("");
+  const [gerando, setGerando] = useState(false);
+  const painelRef = useRef(null);
+
+  const gruposCAR = useMemo(
+    () => agruparCamadasImportadasPorCAR(camadasImportadas).filter((grupo) => !!grupo.camadaImovel),
+    [camadasImportadas]
+  );
+
+  const grupoSelecionado = useMemo(
+    () => gruposCAR.find((grupo) => grupo.id === grupoSelecionadoId) || gruposCAR[0] || null,
+    [grupoSelecionadoId, gruposCAR]
+  );
+
+  useEffect(() => {
+    if (!painelAberto || !painelRef.current) {
+      return undefined;
+    }
+
+    const node = painelRef.current;
+    L.DomEvent.disableClickPropagation(node);
+    L.DomEvent.disableScrollPropagation(node);
+
+    return () => {
+      L.DomEvent.off(node);
+    };
+  }, [painelAberto]);
+
+  useEffect(() => {
+    if (!gruposCAR.length) {
+      setGrupoSelecionadoId("");
+      setPainelAberto(false);
+      return;
+    }
+
+    if (!gruposCAR.some((grupo) => grupo.id === grupoSelecionadoId)) {
+      setGrupoSelecionadoId(gruposCAR[0].id);
+    }
+  }, [grupoSelecionadoId, gruposCAR]);
+
+  const executarGeracao = async (grupo) => {
     if (!map || !drawnItemsRef.current) {
       console.warn("Referencias do mapa ou itens desenhados nao estao disponiveis.");
       return;
     }
 
-    const obterCamada = (nomeParcial) =>
-      camadasImportadas.find((camada) => camada.nome.includes(nomeParcial));
-
-    const camadaImovel = obterCamada("Area_do_Imovel");
-    const camadaRL = obterCamada("Reserva_Legal");
-    const camadaAPP = obterCamada("Area_de_Preservacao_Permanente");
-    const camadaCoberturaSolo = obterCamada("Cobertura_do_Solo");
-    const camadaServidao = obterCamada("Servidao_Administrativa");
-
-    if (!camadaImovel) {
+    if (!grupo?.camadaImovel) {
       alert("Area do imovel nao encontrada.");
       return;
     }
+
+    const camadaImovel = grupo.camadaImovel;
+    const camadaRL = obterCamadaDoGrupo(grupo, "reserva_legal");
+    const camadaAPP = obterCamadaDoGrupo(grupo, "app");
+    const camadaCoberturaSolo = obterCamadaDoGrupo(grupo, "cobertura_solo");
+    const camadaServidao = obterCamadaDoGrupo(grupo, "servidao_administrativa");
 
     const featureImovel = obterFeaturePrincipal(camadaImovel.layer);
     if (!featureImovel?.geometry) {
@@ -236,7 +287,6 @@ export default function GerarAreaBeneficiavel({
 
     const ufCAR = extrairUfDoCAR(featureImovel);
     const exigeApf = ufCAR === "MT";
-
     const impeditivas = [
       obterColecaoGeoJSON(camadaRL?.layer),
       obterColecaoGeoJSON(camadaAPP?.layer),
@@ -245,10 +295,9 @@ export default function GerarAreaBeneficiavel({
     ].filter(Boolean);
 
     let apfGeojson = null;
-    let processamentoAtivo = false;
 
     try {
-      processamentoAtivo = true;
+      setGerando(true);
       showProcessingOverlay?.({
         title: "Gerando area beneficiavel",
         message: exigeApf
@@ -304,27 +353,129 @@ export default function GerarAreaBeneficiavel({
       map.fitBounds(novaLayer.getBounds());
 
       setCamadasImportadas((prev) => [
-        ...prev,
-        {
-          nome: "Área Beneficiável",
+        ...prev.filter((camada) => {
+          const mesmaAreaBeneficiavel =
+            camada?.tipoCamada === "area_beneficiavel" &&
+            normalizarCodigoCAR(camada?.carCodigo) === normalizarCodigoCAR(grupo?.carCodigo);
+
+          if (mesmaAreaBeneficiavel) {
+            drawnItemsRef.current.removeLayer(camada.layer);
+            return false;
+          }
+
+          return true;
+        }),
+        criarRegistroCamadaImportada({
+          nome: "Area_Beneficiavel",
+          rotulo: "Area Beneficiavel",
           layer: novaLayer,
           visivel: true,
           exportavel: true,
-        },
+          carCodigo: grupo?.carCodigo || "",
+          origem: "resultado",
+        }),
       ]);
+
+      setPainelAberto(false);
     } catch (error) {
       console.error("Erro ao gerar area beneficiavel:", error);
       alert("Erro ao gerar area beneficiavel.");
     } finally {
-      if (processamentoAtivo) {
-        hideProcessingOverlay?.();
-      }
+      setGerando(false);
+      hideProcessingOverlay?.();
     }
   };
 
+  const handleAbrirFluxo = () => {
+    if (!gruposCAR.length) {
+      alert("Area do imovel nao encontrada.");
+      return;
+    }
+
+    if (gruposCAR.length === 1) {
+      executarGeracao(gruposCAR[0]);
+      return;
+    }
+
+    setGrupoSelecionadoId((atual) => atual || gruposCAR[0].id);
+    setPainelAberto(true);
+  };
+
   return (
-    <button onClick={gerar} title="Gerar Área Beneficiável">
-      <img src="/icons/plant.svg" alt="Área Beneficiável" style={{ width: "22px", height: "22px" }} />
-    </button>
+    <>
+      <button onClick={handleAbrirFluxo} title="Gerar Ãrea BeneficiÃ¡vel" type="button">
+        <img src="/icons/plant.svg" alt="Ãrea BeneficiÃ¡vel" style={{ width: "22px", height: "22px" }} />
+      </button>
+
+      {painelAberto && (
+        <div className="painel-relatorio-temporal painel-selecao-car-beneficiavel" ref={painelRef}>
+          <div className="painel-relatorio-topo">
+            <div>
+              <strong>Selecionar CAR</strong>
+              <p>Escolha o CAR para gerar a area beneficiavel.</p>
+            </div>
+            <button className="fechar" onClick={() => setPainelAberto(false)} type="button">
+              x
+            </button>
+          </div>
+
+          <div className="painel-relatorio-corpo">
+            <div className="painel-relatorio-bloco painel-relatorio-blocoCresce">
+              <div className="painel-relatorio-subtitulo">
+                CARs importados ({gruposCAR.length})
+              </div>
+              <div className="painel-relatorio-lista">
+                {gruposCAR.map((grupo, indice) => {
+                  const selecionado = grupo.id === grupoSelecionado?.id;
+                  const camadaImovel = grupo.camadaImovel;
+                  const resumo = [
+                    `${grupo.camadas.length} camadas`,
+                    camadaImovel?.layer?.getLayers?.()?.length
+                      ? `${camadaImovel.layer.getLayers().length} feicoes`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" - ");
+
+                  return (
+                    <label
+                      key={grupo.id}
+                      className={`painel-relatorio-item ${selecionado ? "is-selected" : ""}`}
+                    >
+                      <input
+                        type="radio"
+                        name="car-area-beneficiavel"
+                        checked={selecionado}
+                        onChange={() => setGrupoSelecionadoId(grupo.id)}
+                      />
+                      <div className="painel-relatorio-itemBody">
+                        <div className="painel-relatorio-itemTop">
+                          <strong>{obterTituloGrupo(grupo, indice)}</strong>
+                          {selecionado && <span className="painel-relatorio-indice">Selecionado</span>}
+                        </div>
+                        <span>{resumo}</span>
+                        <small>
+                          Camada principal: {camadaImovel?.rotulo || "Area do Imovel"}
+                        </small>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="painel-relatorio-acoes">
+            <button
+              onClick={() => executarGeracao(grupoSelecionado)}
+              disabled={!grupoSelecionado || gerando}
+              type="button"
+            >
+              {gerando ? "Gerando..." : "Gerar area deste CAR"}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

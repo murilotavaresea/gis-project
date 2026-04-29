@@ -58,7 +58,7 @@ export default function Login() {
 
         <form className="login-box" onSubmit={handleLogin}>
           <div className="login-cardEyebrow">Acesso seguro</div>
-          <h2>Entrar no WebGIS</h2>
+          <h2>Entrar no LiroGis</h2>
           <p className="login-helper">Use suas credenciais para abrir o painel cartografico.</p>
 
           <label className="login-field">

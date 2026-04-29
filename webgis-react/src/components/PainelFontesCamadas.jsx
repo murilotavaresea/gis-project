@@ -14,6 +14,7 @@ function agruparFontes(camadas = []) {
         ...resumo,
         quantidade: 0,
         exemplos: [],
+        observacoes: [],
       });
     }
 
@@ -22,6 +23,10 @@ function agruparFontes(camadas = []) {
 
     if (!grupo.exemplos.includes(resumo.camada) && grupo.exemplos.length < 4) {
       grupo.exemplos.push(resumo.camada);
+    }
+
+    if (resumo.observacao && !grupo.observacoes.includes(resumo.observacao)) {
+      grupo.observacoes.push(resumo.observacao);
     }
   });
 
@@ -66,6 +71,11 @@ export default function PainelFontesCamadas({ camadas, onClose, variant = "float
               </div>
               <div className="painel-fontesMeta">{fonte.quantidade} camadas vinculadas</div>
               <div className="painel-fontesUrl">{fonte.url}</div>
+              {fonte.observacoes.map((observacao) => (
+                <div key={observacao} className="painel-fontesNota">
+                  {observacao}
+                </div>
+              ))}
               <div className="painel-fontesLayers">
                 {fonte.exemplos.map((nome) => (
                   <span key={nome} className="painel-fontesLayerTag">

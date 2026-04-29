@@ -752,6 +752,7 @@
 .pc-sectionHeaderLeft,
 .pc-layerLeft {
   gap: 10px;
+  min-width: 0;
 }
 
 .pc-chevron {
@@ -766,6 +767,11 @@
 }
 
 .pc-sectionTitle {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -1272,7 +1278,7 @@
 
 #measurement-panel .start-button,
 #measurement-panel .reset-button,
-.painel-busca-car > button:nth-of-type(1) {
+.painel-busca-car form > button:nth-of-type(1) {
   width: 100%;
   height: 34px;
   border-radius: 0;
@@ -1288,7 +1294,7 @@
 }
 
 #measurement-panel .reset-button,
-.painel-busca-car > button:nth-of-type(1) {
+.painel-busca-car form > button:nth-of-type(1) {
   border: none;
   background: #2f2f2f;
   color: #f8faf6;
@@ -1302,14 +1308,14 @@
 }
 
 #measurement-panel .reset-button:hover,
-.painel-busca-car > button:nth-of-type(1):hover {
+.painel-busca-car form > button:nth-of-type(1):hover {
   transform: translateY(-1px);
   opacity: 0.98;
 }
 
 #measurement-panel .start-button:disabled,
 #measurement-panel .reset-button:disabled,
-.painel-busca-car > button:disabled,
+.painel-busca-car form > button:disabled,
 #measurement-panel .reset-button:disabled {
   opacity: 0.56;
   cursor: not-allowed;
@@ -1354,11 +1360,15 @@
   letter-spacing: 0.04em;
 }
 
+.painel-busca-car form {
+  margin: 0;
+}
+
 .painel-busca-car input {
   margin-bottom: 12px;
 }
 
-.painel-busca-car > button {
+.painel-busca-car form > button {
   width: 100%;
   height: 42px;
   margin-bottom: 10px;
@@ -1367,15 +1377,15 @@
   cursor: pointer;
 }
 
-.painel-busca-car > button:nth-of-type(2),
-.painel-busca-car > button:nth-of-type(3) {
+.painel-busca-car form > button:nth-of-type(2),
+.painel-busca-car form > button:nth-of-type(3) {
   border: 1px solid var(--color-border-soft);
   background: rgba(109, 97, 104, 0.04);
   color: var(--text-strong);
 }
 
-.painel-busca-car > button:nth-of-type(2):hover,
-.painel-busca-car > button:nth-of-type(3):hover {
+.painel-busca-car form > button:nth-of-type(2):hover,
+.painel-busca-car form > button:nth-of-type(3):hover {
   background: rgba(136, 195, 181, 0.14);
 }
 
@@ -1397,6 +1407,139 @@
   overflow: hidden;
   border-radius: 22px;
   box-shadow: 0 18px 30px rgba(86, 78, 84, 0.12);
+}
+
+.painel-selecao-car-beneficiavel {
+  top: 212px;
+  width: 286px;
+  height: auto;
+  max-height: min(420px, calc(100vh - 244px));
+  padding: 12px;
+  gap: 8px;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-topo {
+  gap: 8px;
+  padding-right: 32px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-topo strong {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-topo p {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.painel-selecao-car-beneficiavel .fechar {
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-status {
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: 0;
+  border-color: rgba(109, 97, 104, 0.12);
+  background: rgba(109, 97, 104, 0.04);
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-badge {
+  padding: 3px 7px;
+  font-size: 9px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-muted {
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-corpo {
+  gap: 8px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-bloco {
+  padding: 8px;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-subtitulo {
+  margin-bottom: 6px;
+  font-size: 9.5px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-lista {
+  gap: 4px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-item {
+  gap: 7px;
+  padding: 7px 8px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-item:hover {
+  transform: none;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-item.is-selected {
+  border-color: rgba(136, 195, 181, 0.28);
+  background: rgba(136, 195, 181, 0.12);
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-item input {
+  width: 13px;
+  height: 13px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-itemBody {
+  gap: 2px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-itemBody strong {
+  font-size: 10px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-itemBody span,
+.painel-selecao-car-beneficiavel .painel-relatorio-itemBody small {
+  font-size: 9.5px;
+  line-height: 1.25;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-itemTop {
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-indice {
+  padding: 1px 5px;
+  border-radius: 0;
+  font-size: 8.5px;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-acoes {
+  padding-top: 0;
+}
+
+.painel-selecao-car-beneficiavel .painel-relatorio-acoes button {
+  height: 34px;
+  border-radius: 0;
+  background: #2f2f2f;
+  color: #f8faf6;
 }
 
 .painel-relatorio-topo {
@@ -1861,6 +2004,17 @@
   font-size: 10px;
   line-height: 1.45;
   word-break: break-word;
+}
+
+.painel-fontesNota {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(196, 143, 93, 0.12);
+  border: 1px solid rgba(196, 143, 93, 0.22);
+  color: #7a5637;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .painel-fontesLayers {

@@ -8,6 +8,8 @@ import {
 } from "@turf/turf";
 import formatarPopupAtributos from "../utils/formatarPopupAtributos";
 
+const DRAW_INTERACTION_COOLDOWN_MS = 300;
+
 function parsePlainTextFeatureInfo(text) {
   const lines = text
     .split(/\r?\n/)
@@ -263,6 +265,8 @@ export default function WmsFeatureInfoOverlay({
 }) {
   const map = useMap();
   const abortRef = useRef(null);
+  const drawInteractionActiveRef = useRef(false);
+  const suppressClicksUntilRef = useRef(0);
   const orderedVisibleLayers = useMemo(
     () => buildOrderedVisibleLayers(camadas, orderedLayerNames),
     [camadas, orderedLayerNames]
@@ -279,11 +283,49 @@ export default function WmsFeatureInfoOverlay({
   );
 
   useEffect(() => {
+    const activateSuppression = () => {
+      drawInteractionActiveRef.current = true;
+      suppressClicksUntilRef.current = Date.now() + DRAW_INTERACTION_COOLDOWN_MS;
+      map.closePopup();
+    };
+
+    const releaseSuppression = () => {
+      drawInteractionActiveRef.current = false;
+      suppressClicksUntilRef.current = Date.now() + DRAW_INTERACTION_COOLDOWN_MS;
+    };
+
+    map.on("draw:drawstart", activateSuppression);
+    map.on("draw:editstart", activateSuppression);
+    map.on("draw:deletestart", activateSuppression);
+    map.on("draw:created", releaseSuppression);
+    map.on("draw:drawstop", releaseSuppression);
+    map.on("draw:editstop", releaseSuppression);
+    map.on("draw:deletestop", releaseSuppression);
+
+    return () => {
+      map.off("draw:drawstart", activateSuppression);
+      map.off("draw:editstart", activateSuppression);
+      map.off("draw:deletestart", activateSuppression);
+      map.off("draw:created", releaseSuppression);
+      map.off("draw:drawstop", releaseSuppression);
+      map.off("draw:editstop", releaseSuppression);
+      map.off("draw:deletestop", releaseSuppression);
+    };
+  }, [map]);
+
+  useEffect(() => {
     if (orderedVisibleLayers.length === 0) {
       return undefined;
     }
 
     const handleClick = async (event) => {
+      if (
+        drawInteractionActiveRef.current ||
+        Date.now() < suppressClicksUntilRef.current
+      ) {
+        return;
+      }
+
       const results = collectVectorResults({
         layers: orderedVisibleLayers,
         featureCollectionsExternas,

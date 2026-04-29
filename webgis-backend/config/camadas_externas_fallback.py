@@ -89,6 +89,15 @@ INPE_PRODES_MOSAIC_TIMES = [
     "2024-01-01T00:00:00.000Z",
 ]
 
+PRODES_BIOMAS_LAYERS = [
+    ("Amazonia", "prodes-amazon-nb:yearly_deforestation_biome"),
+    ("Cerrado", "prodes-cerrado-nb:yearly_deforestation"),
+    ("Mata Atlantica", "prodes-mata-atlantica-nb:yearly_deforestation"),
+    ("Caatinga", "prodes-caatinga-nb:yearly_deforestation"),
+    ("Pantanal", "prodes-pantanal-nb:yearly_deforestation"),
+    ("Pampa", "prodes-pampa-nb:yearly_deforestation"),
+]
+
 
 def criar_camadas_imoveis(estados, tema_prefixo, subgrupo_externo):
     return [
@@ -205,6 +214,26 @@ def criar_camadas_mapbiomas_alerta():
     ]
 
 
+def criar_camadas_prodes_biomas():
+    return [
+        {
+            "titulo": f"PRODES {bioma} - Desmatamento anual",
+            "typeName": type_name,
+            "wfs": "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
+            "featureFilter": {
+                "field": "year",
+                "operator": "gte",
+                "value": 2019,
+            },
+            "minZoom": 7,
+            "sourceType": "wfs",
+            "grupoExterno": "Alertas",
+            "subgrupoExterno": "PRODES",
+        }
+        for bioma, type_name in PRODES_BIOMAS_LAYERS
+    ]
+
+
 CAMADAS_EXTERNAS_FALLBACK = [
     {
         "titulo": "Embargos IBAMA",
@@ -214,24 +243,7 @@ CAMADAS_EXTERNAS_FALLBACK = [
         "sourceType": "wfs",
         "grupoExterno": "Fontes Externas",
     },
-    {
-        "titulo": "PRODES Amazonia - Desmatamento anual",
-        "typeName": "prodes-legal-amz:yearly_deforestation",
-        "wfs": "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
-        "minZoom": 7,
-        "sourceType": "wfs",
-        "grupoExterno": "Alertas",
-        "subgrupoExterno": "PRODES",
-    },
-    {
-        "titulo": "PRODES Cerrado - Desmatamento anual",
-        "typeName": "prodes-cerrado-nb:accumulated_deforestation_2000",
-        "wfs": "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
-        "minZoom": 7,
-        "sourceType": "wfs",
-        "grupoExterno": "Alertas",
-        "subgrupoExterno": "PRODES",
-    },
+    *criar_camadas_prodes_biomas(),
     {
         "titulo": "Sitios Arqueologicos (IPHAN)",
         "typeName": "SICG:sitios",

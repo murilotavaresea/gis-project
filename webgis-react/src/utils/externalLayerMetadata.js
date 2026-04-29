@@ -3,6 +3,21 @@ import formatarNomeCamada from "./formatarNomeCamada";
 const GEOSERVER_INTERNO_URL = "";
 const ACERVO_FUNDIARIO_OGC_URL = "http://acervofundiario.incra.gov.br/i3geo/ogc.php";
 const MAPBIOMAS_ALERTA_GRAPHQL_URL = "https://plataforma.alerta.mapbiomas.org/api/v2/graphql";
+const PRODES_MCR_NOTE =
+  "Conformidade MCR: a analise do PRODES considera obrigatoriamente os dados a partir de 2019.";
+
+function ehCamadaProdes(camada) {
+  const identificadores = [
+    camada?.titulo,
+    camada?.nome,
+    camada?.typeName,
+    camada?.wmsLayers,
+  ]
+    .filter(Boolean)
+    .map((valor) => String(valor).toUpperCase());
+
+  return identificadores.some((valor) => valor.includes("PRODES"));
+}
 
 export function normalizarUrlFonte(url = "") {
   if (!url) {
@@ -94,6 +109,8 @@ export function resumirCamadaFonte(camada, geoserverBaseUrl = GEOSERVER_INTERNO_
     };
   }
 
+  const observacao = ehCamadaProdes(camada) ? PRODES_MCR_NOTE : "";
+
   if (camada.sourceType === "wms") {
     return {
       grupo: "Fontes Externas",
@@ -101,6 +118,7 @@ export function resumirCamadaFonte(camada, geoserverBaseUrl = GEOSERVER_INTERNO_
       servico: "WMS",
       url: normalizarUrlFonte(camada.wmsBaseUrl),
       camada: formatarNomeCamada(camada),
+      observacao,
     };
   }
 
@@ -113,6 +131,7 @@ export function resumirCamadaFonte(camada, geoserverBaseUrl = GEOSERVER_INTERNO_
       servico: "XYZ Tiles",
       url: normalizarUrlFonte(baseUrl),
       camada: formatarNomeCamada(camada),
+      observacao,
     };
   }
 
@@ -123,6 +142,7 @@ export function resumirCamadaFonte(camada, geoserverBaseUrl = GEOSERVER_INTERNO_
       servico: "ArcGIS Feature Service",
       url: normalizarUrlFonte(camada.arcgisQueryUrl),
       camada: formatarNomeCamada(camada),
+      observacao,
     };
   }
 
@@ -133,6 +153,7 @@ export function resumirCamadaFonte(camada, geoserverBaseUrl = GEOSERVER_INTERNO_
       servico: "Proxy backend / GraphQL API",
       url: normalizarUrlFonte(camada.mapbiomasApiUrl || MAPBIOMAS_ALERTA_GRAPHQL_URL),
       camada: formatarNomeCamada(camada),
+      observacao,
     };
   }
 
@@ -142,5 +163,6 @@ export function resumirCamadaFonte(camada, geoserverBaseUrl = GEOSERVER_INTERNO_
     servico: "WFS",
     url: normalizarUrlFonte(camada.wfsBaseUrl),
     camada: formatarNomeCamada(camada),
+    observacao,
   };
 }

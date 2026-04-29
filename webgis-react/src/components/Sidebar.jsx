@@ -3,9 +3,9 @@ import React from "react";
 export default function Sidebar({
   isOpen,
   onToggle,
-  title = "WebGIS",
+  title = "LiroGis",
   subtitle = "Camadas e Ferramentas",
-  logoSrc = "/icons/Logo-nova.png",
+  logoSrc = "/icons/Liro.png",
   frameTitle = "Camadas disponiveis",
   sections = [],
   activeSection = "camadas",

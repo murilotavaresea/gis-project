@@ -48,7 +48,7 @@ function desenharRodape(doc, paginaAtual, totalPaginas, dataHoje) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(106, 122, 118);
-  doc.text(`Gerado via WebGIS em ${dataHoje}`, MARGIN_X, 291);
+  doc.text(`Gerado via LiroGis em ${dataHoje}`, MARGIN_X, 291);
   doc.text(`Pagina ${paginaAtual} de ${totalPaginas}`, PAGE_WIDTH - MARGIN_X, 291, {
     align: "right",
   });

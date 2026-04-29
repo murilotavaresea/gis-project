@@ -10,7 +10,7 @@ export default function LayerPanel({
   setOrdemCamadasAtivas,
 }) {
   const listRef = useRef(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const camadasVisiveis = useMemo(() => {
     const camadasVisiveisBase = camadas.filter((camada) => camada.visivel);

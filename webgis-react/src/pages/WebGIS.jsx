@@ -44,6 +44,7 @@ import config from "../config";
 import exportarLayerComoKml from "../utils/exportarLayerComoKml";
 import { obterResumoDesenho } from "../utils/desenhoMetricas";
 import formatarPopupAtributos from "../utils/formatarPopupAtributos";
+import { criarRegistroCamadaImportada } from "../utils/carLayers";
 
 window.L = L;
 
@@ -208,6 +209,10 @@ function formatarNomeCAR(nome) {
     'Servidao_Administrativa': 'Servidão Administrativa'
   };
 
+  if (base.includes('Area_Beneficiavel')) {
+    return 'Area Beneficiavel';
+  }
+
   const chaveEncontrada = Object.keys(mapeamento).find(k => base.includes(k));
 
   return chaveEncontrada
@@ -259,7 +264,7 @@ export default function WebGIS() {
   };
   const introTourSteps = useMemo(() => [
     {
-      title: "Bem-vindo ao WebGIS",
+      title: "Bem-vindo ao LiroGis",
       description:
         "Este guia rapido apresenta as principais areas da plataforma. Voce pode avancar passo a passo ou pular quando quiser.",
       placement: "center",
@@ -723,17 +728,17 @@ export default function WebGIS() {
 
 
 
-  const toggleCamadaImportada = (nome) => {
+  const toggleCamadaImportada = (id) => {
 
     setCamadasImportadas(prev =>
       prev.map(c =>
-        c.nome === nome
+        c.id === id
           ? { ...c, visivel: !c.visivel }
           : c
       )
     );
 
-    const camada = camadasImportadas.find(c => c.nome === nome);
+    const camada = camadasImportadas.find(c => c.id === id);
 
     if (camada) {
 
@@ -753,15 +758,15 @@ export default function WebGIS() {
 
 
 
-  const removerCamadaImportada = (index) => {
+  const removerCamadaImportada = (id) => {
 
-    const camada = camadasImportadas[index];
+    const camada = camadasImportadas.find(c => c.id === id);
 
     if (camada) {
 
       drawnItemsRef.current.removeLayer(camada.layer);
 
-      setCamadasImportadas(prev => prev.filter((_, i) => i !== index));
+      setCamadasImportadas(prev => prev.filter((c) => c.id !== id));
 
     }
 
@@ -783,13 +788,13 @@ export default function WebGIS() {
 
 
 
-  const exportarCamadaImportada = (index) => {
+  const exportarCamadaImportada = (id) => {
 
-    const camada = camadasImportadas[index];
+    const camada = camadasImportadas.find(c => c.id === id);
 
     if (!camada?.layer) return;
 
-    exportarLayerComoKml(camada.layer, camada.nome || 'camada_importada');
+    exportarLayerComoKml(camada.layer, camada.rotulo || camada.nome || 'camada_importada');
 
   };
 
@@ -1030,11 +1035,11 @@ export default function WebGIS() {
           : prev
       ),
 
-      {
+      criarRegistroCamadaImportada({
         nome: nomeOriginal,
         layer,
-        visivel: true
-      }
+        visivel: true,
+      })
 
     ]);
 
@@ -1051,7 +1056,7 @@ export default function WebGIS() {
         activeSection={activeSidebarView}
         onChangeSection={setActiveSidebarView}
         onStartTour={abrirIntroTour}
-        title="Atlas WebGIS"
+        title="LiroGis"
         subtitle="Analise territorial e inteligencia espacial"
         frameTitle={sidebarFrameTitle[activeSidebarView] || "Catalogo operacional"}
       >

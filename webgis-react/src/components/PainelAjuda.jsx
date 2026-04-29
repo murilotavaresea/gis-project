@@ -79,7 +79,7 @@ export default function PainelAjuda() {
       <div className="help-hero">
         <strong>Guia de uso da plataforma</strong>
         <p>
-          Aqui voce encontra um resumo objetivo do que cada parte do Atlas WebGIS faz, quando usar
+          Aqui voce encontra um resumo objetivo do que cada parte do LiroGis faz, quando usar
           cada ferramenta e como seguir o fluxo de analise do CAR do inicio ao resultado final.
         </p>
       </div>

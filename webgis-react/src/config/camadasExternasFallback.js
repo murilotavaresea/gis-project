@@ -89,6 +89,15 @@ const INPE_PRODES_MOSAIC_TIMES = [
   "2024-01-01T00:00:00.000Z",
 ];
 
+const PRODES_BIOMAS_LAYERS = [
+  ["Amazonia", "prodes-amazon-nb:yearly_deforestation_biome"],
+  ["Cerrado", "prodes-cerrado-nb:yearly_deforestation"],
+  ["Mata Atlantica", "prodes-mata-atlantica-nb:yearly_deforestation"],
+  ["Caatinga", "prodes-caatinga-nb:yearly_deforestation"],
+  ["Pantanal", "prodes-pantanal-nb:yearly_deforestation"],
+  ["Pampa", "prodes-pampa-nb:yearly_deforestation"],
+];
+
 function criarCamadasImoveis(estados, temaPrefixo, subgrupoExterno) {
   return estados.map(([uf, nomeEstado]) => ({
     titulo: nomeEstado,
@@ -196,6 +205,23 @@ function criarCamadasMapbiomasAlerta() {
   ];
 }
 
+function criarCamadasProdesBiomas() {
+  return PRODES_BIOMAS_LAYERS.map(([bioma, typeName]) => ({
+    titulo: `PRODES ${bioma} - Desmatamento anual`,
+    typeName,
+    wfs: "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
+    featureFilter: {
+      field: "year",
+      operator: "gte",
+      value: 2019,
+    },
+    minZoom: 7,
+    sourceType: "wfs",
+    grupoExterno: "Alertas",
+    subgrupoExterno: "PRODES",
+  }));
+}
+
 const camadasExternasFallback = [
   {
     titulo: "Embargos IBAMA",
@@ -205,24 +231,7 @@ const camadasExternasFallback = [
     sourceType: "wfs",
     grupoExterno: "Fontes Externas",
   },
-  {
-    titulo: "PRODES Amazonia - Desmatamento anual",
-    typeName: "prodes-legal-amz:yearly_deforestation",
-    wfs: "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
-    minZoom: 7,
-    sourceType: "wfs",
-    grupoExterno: "Alertas",
-    subgrupoExterno: "PRODES",
-  },
-  {
-    titulo: "PRODES Cerrado - Desmatamento anual",
-    typeName: "prodes-cerrado-nb:accumulated_deforestation_2000",
-    wfs: "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
-    minZoom: 7,
-    sourceType: "wfs",
-    grupoExterno: "Alertas",
-    subgrupoExterno: "PRODES",
-  },
+  ...criarCamadasProdesBiomas(),
   {
     titulo: "Sitios Arqueologicos (IPHAN)",
     typeName: "SICG:sitios",
