@@ -59,7 +59,7 @@ function montarConsultaWfs({
   baseUrl,
   version = "2.0.0",
   typeName,
-  bboxParam,
+  bboxParam = null,
   extraParams = {},
 }) {
   const typeParam = String(version).startsWith("2.") ? "typenames" : "typeName";
@@ -71,7 +71,7 @@ function montarConsultaWfs({
     `&${typeParam}=${encodeURIComponent(typeName)}` +
     `&outputFormat=application/json` +
     `&srsName=EPSG:4326` +
-    `&bbox=${encodeURIComponent(bboxParam)}` +
+    (bboxParam ? `&bbox=${encodeURIComponent(bboxParam)}` : "") +
     (extras ? `&${extras}` : "")
   );
 }
@@ -129,7 +129,7 @@ function montarUrlConsulta(camada, bbox) {
       baseUrl: camada.wfsBaseUrl,
       version: camada.wfsVersion || "2.0.0",
       typeName: camada.typeName || camada.nome,
-      bboxParam,
+      bboxParam: camada.useBbox === false ? null : bboxParam,
       extraParams: camada.wfsParams,
     });
   }
@@ -194,6 +194,46 @@ function possuiSobreposicaoReal(areaFeature, feature) {
   }
 
   return turf.booleanIntersects(areaFeature, feature);
+}
+
+function normalizarSubzonaZsee(valor) {
+  const texto = String(valor || "").trim().toUpperCase();
+
+  if (!texto) {
+    return null;
+  }
+
+  const match = texto.match(/(?:ZONA|SUBZONA)\s*([0-9.]+)/);
+  return match ? `ZONA ${match[1]}` : texto;
+}
+
+function obterDetalhesSobreposicao(camada, featuresSobrepostas = []) {
+  const identificador = [
+    camada?.titulo,
+    camada?.nome,
+    camada?.typeName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toUpperCase();
+
+  if (!identificador.includes("ZSEE")) {
+    return [];
+  }
+
+  const subzonas = [
+    ...new Set(
+      featuresSobrepostas
+        .map((feature) => normalizarSubzonaZsee(feature?.properties?.SUBZONA))
+        .filter(Boolean)
+    ),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+
+  if (!subzonas.length) {
+    return [];
+  }
+
+  return [`Subzona incidente: ${subzonas.join(", ")}`];
 }
 
 export default function VerificarSobreposicao({
@@ -301,6 +341,9 @@ export default function VerificarSobreposicao({
             camada: nomeFormatado,
             sobreposicao: !!intersecta,
             erroConsulta: false,
+            detalhes: intersecta
+              ? obterDetalhesSobreposicao(camada, featuresSobrepostas)
+              : [],
           });
         } catch (error) {
           console.warn(`Erro ao buscar ou processar camada ${nomeFormatado}:`, error);

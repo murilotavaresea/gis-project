@@ -84,9 +84,24 @@ function desenharTabelaHeader(doc, y) {
   doc.text("Situacao", PAGE_WIDTH - MARGIN_X - 4, y + 6.3, { align: "right" });
 }
 
+function obterLinhasDetalheResultado(doc, resultado, largura) {
+  const detalhes = Array.isArray(resultado.detalhes) ? resultado.detalhes : [];
+  const texto = detalhes.filter(Boolean).join(" | ");
+
+  if (!texto) {
+    return [];
+  }
+
+  return doc.splitTextToSize(normalizarTexto(texto), largura);
+}
+
 function desenharLinhaResultado(doc, y, resultado, indice) {
   const camadaLinhas = doc.splitTextToSize(normalizarTexto(resultado.camada), 118);
-  const alturaLinha = Math.max(11, camadaLinhas.length * 5 + 4);
+  const detalheLinhas = obterLinhasDetalheResultado(doc, resultado, 118);
+  const alturaLinha = Math.max(
+    11,
+    camadaLinhas.length * 5 + detalheLinhas.length * 4 + (detalheLinhas.length ? 7 : 4)
+  );
   const fundo = indice % 2 === 0 ? [250, 252, 251] : [243, 247, 245];
   const statusTexto = resultado.erroConsulta
     ? "Nao verificada"
@@ -111,6 +126,13 @@ function desenharLinhaResultado(doc, y, resultado, indice) {
   doc.setFontSize(9.5);
   doc.setTextColor(24, 42, 45);
   doc.text(camadaLinhas, MARGIN_X + 4, y + 6);
+
+  if (detalheLinhas.length) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.2);
+    doc.setTextColor(76, 96, 92);
+    doc.text(detalheLinhas, MARGIN_X + 4, y + 6 + camadaLinhas.length * 5);
+  }
 
   const pillWidth = 42;
   const pillX = PAGE_WIDTH - MARGIN_X - pillWidth - 4;
@@ -344,7 +366,12 @@ export default async function gerarRelatorioPDF({
   y += 13;
 
   resultadosOrdenados.forEach((resultado, indice) => {
-    const proximaAltura = Math.max(11, doc.splitTextToSize(normalizarTexto(resultado.camada), 118).length * 5 + 4) + 2.5;
+    const camadaLinhas = doc.splitTextToSize(normalizarTexto(resultado.camada), 118);
+    const detalheLinhas = obterLinhasDetalheResultado(doc, resultado, 118);
+    const proximaAltura = Math.max(
+      11,
+      camadaLinhas.length * 5 + detalheLinhas.length * 4 + (detalheLinhas.length ? 7 : 4)
+    ) + 2.5;
     if (y + proximaAltura > 280) {
       doc.addPage();
       desenharCabecalho(doc, `CAR ${codigo}`);

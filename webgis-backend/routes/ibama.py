@@ -738,6 +738,23 @@ def proxy_wms():
         return {"erro": str(error)}, 500
 
 
+@ibama_bp.route("/proxy/xyz/<int:z>/<int:x>/<int:y>")
+def proxy_xyz_tile(z, x, y):
+    base = normalize_external_base_url(request.args.get("base", "").strip()).rstrip("/")
+
+    if not base:
+        return {"erro": "Parametro 'base' e obrigatorio"}, 400
+
+    params = request.args.to_dict()
+    params.pop("base", None)
+    tile_url = f"{base}/{z}/{x}/{y}"
+
+    try:
+        return proxy_external_request(tile_url, params)
+    except Exception as error:
+        return {"erro": str(error)}, 500
+
+
 @ibama_bp.route("/proxy/mapbiomas-alerta")
 def proxy_mapbiomas_alerta():
     try:

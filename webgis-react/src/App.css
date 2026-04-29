@@ -866,12 +866,14 @@
   width: 9px;
   height: 9px;
   border-radius: 999px;
-  background: rgba(109, 97, 104, 0.24);
+  background: var(--pc-dot-color, rgba(109, 97, 104, 0.24));
+  opacity: 0.48;
   box-shadow: none;
 }
 
 .pc-dot.on {
-  background: var(--accent-primary);
+  background: var(--pc-dot-color, var(--accent-primary));
+  opacity: 1;
   box-shadow: 0 0 0 2px rgba(216, 144, 47, 0.18);
 }
 

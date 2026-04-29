@@ -98,6 +98,12 @@ PRODES_BIOMAS_LAYERS = [
     ("Pampa", "prodes-pampa-nb:yearly_deforestation"),
 ]
 
+PLANET_RONDONIA_2026_LAYERS = [
+    ("01", "Janeiro", "planet_012026"),
+    ("02", "Fevereiro", "planet_022026"),
+    ("03", "Marco", "planet_032026"),
+]
+
 
 def criar_camadas_imoveis(estados, tema_prefixo, subgrupo_externo):
     return [
@@ -195,6 +201,26 @@ def criar_camadas_inpe_prodes_mosaico():
     ]
 
 
+def criar_camadas_planet_rondonia():
+    return [
+        {
+            "id": f"sedam-ro-planet-2026-{mes}",
+            "titulo": f"Planet Rondonia {nome_mes} 2026",
+            "typeName": layer_name,
+            "xyzUrl": f"https://api-geoportal.sedam.ro.gov.br/tilesapi/tiles/planet/2026/{layer_name}/{{z}}/{{x}}/{{y}}",
+            "minZoom": 1,
+            "maxZoom": 20,
+            "opacity": 1,
+            "sourceType": "xyz",
+            "useProxy": "always",
+            "grupoExterno": "Mosaicos",
+            "subgrupoExterno": "Rondonia",
+            "temporalReportEnabled": True,
+        }
+        for mes, nome_mes, layer_name in PLANET_RONDONIA_2026_LAYERS
+    ]
+
+
 def criar_camadas_mapbiomas_alerta():
     return [
         {
@@ -234,6 +260,26 @@ def criar_camadas_prodes_biomas():
     ]
 
 
+def criar_camadas_zsee_rondonia():
+    return [
+        {
+            "id": "zsee-rondonia-2005",
+            "titulo": "ZSEE Rondonia 2005",
+            "typeName": "cogeo:ZSEE_2Aprox_2005_312_SIRGAS2000_4674",
+            "wfs": "https://geoportal.sedam.ro.gov.br/geoserver/ows",
+            "minZoom": 6,
+            "sourceType": "wfs",
+            "wfsVersion": "2.0.0",
+            "useProxy": "always",
+            "useBbox": False,
+            "opacity": 0.82,
+            "requestTimeoutMs": 45000,
+            "grupoExterno": "Fontes Externas",
+            "subgrupoExterno": "SEDAM RO",
+        }
+    ]
+
+
 CAMADAS_EXTERNAS_FALLBACK = [
     {
         "titulo": "Embargos IBAMA",
@@ -260,6 +306,7 @@ CAMADAS_EXTERNAS_FALLBACK = [
         "sourceType": "wfs",
         "grupoExterno": "Fontes Externas",
     },
+    *criar_camadas_zsee_rondonia(),
     {
         "titulo": "APF geometria regular (SEMA-MT)",
         "typeName": "Geoportal:MVW_APF_GEOMETRIA_REGULAR",
@@ -321,6 +368,7 @@ CAMADAS_EXTERNAS_FALLBACK = [
     *criar_camadas_mapbiomas_alerta(),
     *criar_camadas_eox_cloudless(),
     *criar_camadas_inpe_prodes_mosaico(),
+    *criar_camadas_planet_rondonia(),
     *criar_camadas_areas_atribuidas(),
     *criar_camadas_imoveis(
         ESTADOS_IMOVEIS_SNCI,

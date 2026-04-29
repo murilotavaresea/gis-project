@@ -30,6 +30,7 @@ function buildLayerCacheKey({
   wfsPageSize,
   wfsMaxPages,
   featureFilter,
+  useBbox,
   useProxy,
 }) {
   return JSON.stringify({
@@ -41,6 +42,7 @@ function buildLayerCacheKey({
     wfsPageSize: wfsPageSize || null,
     wfsMaxPages: wfsMaxPages || 1,
     featureFilter: featureFilter || null,
+    useBbox: useBbox !== false,
     useProxy: useProxy === false ? "direct-only" : "auto",
   });
 }
@@ -62,6 +64,7 @@ export default function WfsBboxLayer({
   featureFilter = null,
   wfsPageSize = null,
   wfsMaxPages = 1,
+  useBbox = true,
   bboxPad = 0.2,
   requestTimeoutMs = 30000,
   useProxy = true,
@@ -88,6 +91,7 @@ export default function WfsBboxLayer({
       wfsPageSize,
       wfsMaxPages,
       featureFilter,
+      useBbox,
       useProxy,
     })
   );
@@ -103,6 +107,7 @@ export default function WfsBboxLayer({
       wfsPageSize,
       wfsMaxPages,
       featureFilter,
+      useBbox,
       useProxy,
     });
     preferProxyRef.current = shouldStartWithProxy({
@@ -119,6 +124,7 @@ export default function WfsBboxLayer({
     wfsPageSize,
     wfsMaxPages,
     featureFilter,
+    useBbox,
     useProxy,
   ]);
 
@@ -193,16 +199,20 @@ export default function WfsBboxLayer({
       return;
     }
 
-    // Busca uma area um pouco maior que a viewport para evitar "buracos"
-    // quando o usuario desloca o mapa em pequenas distancias.
-    const bounds = map.getBounds().pad(bboxPad);
-    const sw = bounds.getSouthWest();
-    const ne = bounds.getNorthEast();
-    const bboxCoords =
-      bboxAxisOrder === "latlon"
-        ? [sw.lat, sw.lng, ne.lat, ne.lng]
-        : [sw.lng, sw.lat, ne.lng, ne.lat];
-    const bbox = `${bboxCoords.join(",")},EPSG:4326`;
+    let bbox = "full";
+
+    if (useBbox) {
+      // Busca uma area um pouco maior que a viewport para evitar "buracos"
+      // quando o usuario desloca o mapa em pequenas distancias.
+      const bounds = map.getBounds().pad(bboxPad);
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      const bboxCoords =
+        bboxAxisOrder === "latlon"
+          ? [sw.lat, sw.lng, ne.lat, ne.lng]
+          : [sw.lng, sw.lat, ne.lng, ne.lat];
+      bbox = `${bboxCoords.join(",")},EPSG:4326`;
+    }
 
     if (!force && bbox === lastBboxRef.current) {
       return;
@@ -226,10 +236,13 @@ export default function WfsBboxLayer({
         request: "GetFeature",
         outputFormat: "application/json",
         srsName: "EPSG:4326",
-        bbox,
       });
 
       query.set(typeParamName, typeName);
+
+      if (useBbox) {
+        query.set("bbox", bbox);
+      }
 
       Object.entries(wfsParams).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== "") {
@@ -451,6 +464,7 @@ export default function WfsBboxLayer({
     wfsMaxPages,
     requestTimeoutMs,
     useProxy,
+    useBbox,
   ]);
 
   if (!visivel || !data) return null;

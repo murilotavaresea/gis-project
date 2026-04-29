@@ -70,6 +70,34 @@ function gerarEstiloUnico(nome) {
   });
 }
 
+const ZSEE_RONDONIA_STYLES = {
+  "ZONA 1.1": "#b8322d",
+  "ZONA 1.2": "#f47c22",
+  "ZONA 1.3": "#ffe13a",
+  "ZONA 1.4": "#f7d82c",
+  "ZONA 2.1": "#2797a6",
+  "ZONA 2.2": "#2589c8",
+  "ZONA 3.1": "#80b957",
+  "ZONA 3.2": "#2ca468",
+  "ZONA 3.3": "#0d7a43",
+};
+
+function criarEstiloZseeRondonia(subzona) {
+  const color = ZSEE_RONDONIA_STYLES[String(subzona || "").toUpperCase()];
+
+  if (!color) {
+    return null;
+  }
+
+  return criarEstilo({
+    color,
+    fillColor: color,
+    weight: 1.25,
+    opacity: 0.95,
+    fillOpacity: 0.62,
+  });
+}
+
 function getPatternDefinitions() {
   return {
     "pattern-embargo-ibama": {
@@ -193,6 +221,17 @@ export function aplicarPadraoCamada(layer, estilo, map) {
 
 export function getEstiloCamada(nome = "") {
   const nomeUpper = String(nome).toUpperCase();
+
+  if (nomeUpper.includes("ZSEE")) {
+    const subzonaMatch = nomeUpper.match(/ZONA\s+[123]\.[1234]|SUBZONA\s+([123]\.[1234])/);
+    const estiloZsee = criarEstiloZseeRondonia(
+      subzonaMatch?.[0]?.replace("SUBZONA", "ZONA")
+    );
+
+    if (estiloZsee) {
+      return estiloZsee;
+    }
+  }
 
   if (
     nomeUpper.includes("MALHA MUNICIPAL") ||
@@ -352,4 +391,18 @@ export function getEstiloCamada(nome = "") {
   }
 
   return gerarEstiloUnico(nomeUpper);
+}
+
+export function getEstiloFeatureCamada(nome = "", feature = null) {
+  const nomeUpper = String(nome).toUpperCase();
+
+  if (nomeUpper.includes("ZSEE")) {
+    const estiloZsee = criarEstiloZseeRondonia(feature?.properties?.SUBZONA);
+
+    if (estiloZsee) {
+      return estiloZsee;
+    }
+  }
+
+  return getEstiloCamada(nome);
 }

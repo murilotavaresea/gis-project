@@ -22,6 +22,15 @@ function obterEstiloAreaReferencia() {
   };
 }
 
+function buildXyzProxyUrl(url, proxyBaseUrl) {
+  if (!url || !proxyBaseUrl) {
+    return url;
+  }
+
+  const base = String(url).replace(/\/\{z\}\/\{x\}\/\{y\}\/?$/, "");
+  return `${proxyBaseUrl}/{z}/{x}/{y}?base=${encodeURIComponent(base)}`;
+}
+
 function criarCamadaRaster(layer) {
   if (!layer) {
     return null;
@@ -49,7 +58,12 @@ function criarCamadaRaster(layer) {
 
   const xyzUrl = layer.xyzUrl || layer.tileUrlTemplate || layer.urlTemplate;
   if (layer.sourceType === "xyz" && xyzUrl) {
-    return L.tileLayer(xyzUrl, {
+    const shouldUseProxy = canUseProxy(layer.useProxy, config.PROXY_XYZ_TILE_URL);
+    const rasterUrl = shouldUseProxy
+      ? buildXyzProxyUrl(xyzUrl, config.PROXY_XYZ_TILE_URL)
+      : xyzUrl;
+
+    return L.tileLayer(rasterUrl, {
       opacity: layer.opacity ?? 1,
       crossOrigin: true,
       updateWhenIdle: true,

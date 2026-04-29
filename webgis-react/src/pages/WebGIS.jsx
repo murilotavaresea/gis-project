@@ -28,7 +28,7 @@ import PainelAjuda from '../components/PainelAjuda';
 import ProcessingOverlay from '../components/ProcessingOverlay';
 import IntroTour from '../components/IntroTour';
 
-import { aplicarPadraoCamada, getEstiloCamada } from '../utils/estiloCamadas';
+import { aplicarPadraoCamada, getEstiloCamada, getEstiloFeatureCamada } from '../utils/estiloCamadas';
 
 import * as toGeoJSON from '@tmcw/togeojson';
 import shp from 'shpjs';
@@ -36,6 +36,7 @@ import shp from 'shpjs';
 import CoordenadasBox from '../components/CoordenadasBox';
 import WfsBboxLayer from "../components/WfsBboxLayer";
 import ExternalWmsLayer from "../components/ExternalWmsLayer";
+import ExternalXyzLayer from "../components/ExternalXyzLayer";
 import WmsFeatureInfoOverlay from "../components/WmsFeatureInfoOverlay";
 import ArcgisFeatureLayer from "../components/ArcgisFeatureLayer";
 import MapbiomasAlertLayer from "../components/MapbiomasAlertLayer";
@@ -53,7 +54,7 @@ const MAP_ZOOM = 5;
 const EXTERNAL_LAYERS_URL = config.EXTERNAL_LAYERS_URL;
 const EXTERNAL_LAYERS_TIMEOUT_MS = 65000;
 const EXTERNAL_LAYERS_RETRY_DELAY_MS = 1800;
-const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v13";
+const EXTERNAL_CATALOG_CACHE_KEY = "webgis:external-catalog:v22";
 const EXTERNAL_CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 const LAYER_ORDER_BASE_ZINDEX = 320;
 const INTRO_TOUR_STORAGE_KEY = "webgis:intro-tour:v1";
@@ -156,8 +157,13 @@ function isCatalogLayerBlocked(camada = {}) {
 
   return (
     id === "eox-s2cloudless-2017" ||
+    id.startsWith("zsee-rondonia-subzona-") ||
     typeName === "s2cloudless-2017_3857" ||
-    titulo === "sentinel-2 2017"
+    titulo === "sentinel-2 2017" ||
+    (
+      typeName === "cogeo:zsee_2aprox_2005_312_sirgas2000_4674" &&
+      titulo.includes("subzona")
+    )
   );
 }
 
@@ -365,6 +371,7 @@ export default function WebGIS() {
     wfsVersion: c.wfsVersion ?? '2.0.0',
     wfsPageSize: c.wfsPageSize ?? null,
     wfsMaxPages: c.wfsMaxPages ?? 1,
+    useBbox: c.useBbox ?? true,
     bboxPad: c.bboxPad ?? 0.2,
     requestTimeoutMs: c.requestTimeoutMs ?? 30000,
     bboxAxisOrder: c.bboxAxisOrder ?? 'lonlat',
@@ -373,9 +380,12 @@ export default function WebGIS() {
     wmsBaseUrl: c.wms,
     wmsParams: c.wmsParams ?? {},
     wmsCrs: c.wmsCrs ?? null,
+    xyzUrl: c.xyzUrl ?? c.tileUrlTemplate ?? c.urlTemplate ?? null,
+    xyzOptions: c.xyzOptions ?? {},
     useProxy: c.useProxy ?? true,
     opacity: c.opacity ?? 1,
     identifyEnabled: c.identifyEnabled ?? false,
+    legendColor: c.legendColor ?? null,
     analysisWfsBaseUrl: c.analysisWfsBaseUrl,
     analysisTypeName: c.analysisTypeName,
     analysisWfsVersion: c.analysisWfsVersion ?? '2.0.0',
@@ -438,11 +448,11 @@ export default function WebGIS() {
       : camada.nome);
   };
 
-  const criarStyleCamada = (nomeReferencia) => () =>
-    getEstiloCamada(String(nomeReferencia || '').toUpperCase());
+  const criarStyleCamada = (nomeReferencia) => (feature) =>
+    getEstiloFeatureCamada(String(nomeReferencia || '').toUpperCase(), feature);
 
-  const criarHandleEachFeature = (nomeReferencia) => (_feature, layer) => {
-    const estilo = getEstiloCamada(String(nomeReferencia || '').toUpperCase());
+  const criarHandleEachFeature = (nomeReferencia) => (feature, layer) => {
+    const estilo = getEstiloFeatureCamada(String(nomeReferencia || '').toUpperCase(), feature);
 
     aplicarPadraoCamada(layer, estilo, layer._map);
   };
@@ -1151,6 +1161,25 @@ export default function WebGIS() {
             );
           }
 
+          if (c.externa && c.sourceType === "xyz") {
+            return (
+              <ExternalXyzLayer
+                key={c.nome}
+                url={c.xyzUrl}
+                proxyBaseUrl={config.PROXY_XYZ_TILE_URL}
+                useProxy={c.useProxy}
+                paneKey={c.nome}
+                visivel={c.visivel}
+                minZoom={c.minZoom}
+                maxZoom={c.maxZoom}
+                zIndex={zIndexPorCamada[c.nome]}
+                opacity={c.opacity}
+                options={c.xyzOptions}
+                onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
+              />
+            );
+          }
+
           if (c.externa && c.sourceType === 'arcgis-feature') {
             const nomeReferencia = obterNomeReferenciaCamada(c);
 
@@ -1217,6 +1246,7 @@ export default function WebGIS() {
                 wfsVersion={c.wfsVersion}
                 wfsPageSize={c.wfsPageSize}
                 wfsMaxPages={c.wfsMaxPages}
+                useBbox={c.useBbox}
                 bboxPad={c.bboxPad}
                 requestTimeoutMs={c.requestTimeoutMs}
                 bboxAxisOrder={c.bboxAxisOrder}

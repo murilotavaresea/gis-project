@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import L from "leaflet";
-import { getEstiloCamada } from "../utils/estiloCamadas";
+import { getEstiloCamada, getEstiloFeatureCamada } from "../utils/estiloCamadas";
 
 function obterPassoGrid(bounds) {
   const latSpan = Math.abs(bounds.getNorth() - bounds.getSouth());
@@ -105,6 +105,17 @@ function obterEstiloRelatorio(nomeCamada) {
   };
 }
 
+function obterEstiloFeatureRelatorio(nomeCamada, feature) {
+  const estiloBase = getEstiloFeatureCamada(nomeCamada, feature);
+
+  return {
+    ...estiloBase,
+    weight: Math.max(1.15, (estiloBase.weight || 1.2) + 0.1),
+    opacity: Math.max(0.9, estiloBase.opacity || 0.9),
+    fillOpacity: Math.max(0.08, estiloBase.fillOpacity || 0.08),
+  };
+}
+
 function renderizarItemLegenda(nome, estilo, preenchimento = true) {
   const dash = estilo.dashArray || "none";
   const fillColor = preenchimento ? estilo.fillColor || estilo.color : "transparent";
@@ -193,7 +204,7 @@ export default function MapaRelatorio({
       if (!camada?.geojson) return;
 
       L.geoJSON(camada.geojson, {
-        style: () => obterEstiloRelatorio(camada.nome),
+        style: (feature) => obterEstiloFeatureRelatorio(camada.nome, feature),
       }).addTo(map);
     });
 

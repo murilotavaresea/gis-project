@@ -34,6 +34,7 @@ const config = {
   GEOSERVER_BASE_URL,
   EXTERNAL_LAYERS_URL: `${API_BASE_URL}/camadas_externas`,
   PROXY_WFS_BASE_URL: `${API_BASE_URL}/proxy/wfs`,
+  PROXY_XYZ_TILE_URL: `${API_BASE_URL}/proxy/xyz`,
   MAPBIOMAS_ALERTA_PROXY_URL: `${API_BASE_URL}/proxy/mapbiomas-alerta`,
   GENERATE_AREA_URL: `${API_BASE_URL}/gerar-area-beneficiavel`,
 };

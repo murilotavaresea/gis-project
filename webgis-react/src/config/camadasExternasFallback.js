@@ -98,6 +98,12 @@ const PRODES_BIOMAS_LAYERS = [
   ["Pampa", "prodes-pampa-nb:yearly_deforestation"],
 ];
 
+const PLANET_RONDONIA_2026_LAYERS = [
+  ["01", "Janeiro", "planet_012026"],
+  ["02", "Fevereiro", "planet_022026"],
+  ["03", "Marco", "planet_032026"],
+];
+
 function criarCamadasImoveis(estados, temaPrefixo, subgrupoExterno) {
   return estados.map(([uf, nomeEstado]) => ({
     titulo: nomeEstado,
@@ -186,6 +192,23 @@ function criarCamadasInpeProdesMosaico() {
   });
 }
 
+function criarCamadasPlanetRondonia() {
+  return PLANET_RONDONIA_2026_LAYERS.map(([mes, nomeMes, layerName]) => ({
+    id: `sedam-ro-planet-2026-${mes}`,
+    titulo: `Planet Rondonia ${nomeMes} 2026`,
+    typeName: layerName,
+    xyzUrl: `https://api-geoportal.sedam.ro.gov.br/tilesapi/tiles/planet/2026/${layerName}/{z}/{x}/{y}`,
+    minZoom: 1,
+    maxZoom: 20,
+    opacity: 1,
+    sourceType: "xyz",
+    useProxy: "always",
+    grupoExterno: "Mosaicos",
+    subgrupoExterno: "Rondonia",
+    temporalReportEnabled: true,
+  }));
+}
+
 function criarCamadasMapbiomasAlerta() {
   return [
     {
@@ -222,6 +245,26 @@ function criarCamadasProdesBiomas() {
   }));
 }
 
+function criarCamadasZseeRondonia() {
+  return [
+    {
+      id: "zsee-rondonia-2005",
+      titulo: "ZSEE Rondonia 2005",
+      typeName: "cogeo:ZSEE_2Aprox_2005_312_SIRGAS2000_4674",
+      wfs: "https://geoportal.sedam.ro.gov.br/geoserver/ows",
+      minZoom: 6,
+      sourceType: "wfs",
+      wfsVersion: "2.0.0",
+      useProxy: "always",
+      useBbox: false,
+      opacity: 0.82,
+      requestTimeoutMs: 45000,
+      grupoExterno: "Fontes Externas",
+      subgrupoExterno: "SEDAM RO",
+    },
+  ];
+}
+
 const camadasExternasFallback = [
   {
     titulo: "Embargos IBAMA",
@@ -248,6 +291,7 @@ const camadasExternasFallback = [
     sourceType: "wfs",
     grupoExterno: "Fontes Externas",
   },
+  ...criarCamadasZseeRondonia(),
   {
     titulo: "APF geometria regular (SEMA-MT)",
     typeName: "Geoportal:MVW_APF_GEOMETRIA_REGULAR",
@@ -310,6 +354,7 @@ const camadasExternasFallback = [
   ...criarCamadasMapbiomasAlerta(),
   ...criarCamadasEoxCloudless(),
   ...criarCamadasInpeProdesMosaico(),
+  ...criarCamadasPlanetRondonia(),
   ...criarCamadasAreasAtribuidas(),
   ...criarCamadasImoveis(
     ESTADOS_IMOVEIS_SNCI,

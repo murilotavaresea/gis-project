@@ -71,7 +71,7 @@ function LoadingIndicator() {
   );
 }
 
-function LayerRow({ label, checked, onToggle, right, loading = false }) {
+function LayerRow({ label, checked, onToggle, right, loading = false, color = null }) {
   const handleKeyDown = (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -88,7 +88,10 @@ function LayerRow({ label, checked, onToggle, right, loading = false }) {
         role="button"
         tabIndex={0}
       >
-        <span className={`pc-dot ${checked ? "on" : ""}`} />
+        <span
+          className={`pc-dot ${checked ? "on" : ""}`}
+          style={color ? { "--pc-dot-color": color } : undefined}
+        />
         <span className="pc-layerName" title={label}>
           {label}
         </span>
@@ -160,7 +163,7 @@ export default function PainelCamadas({
   );
   const gruposExternos = useMemo(() => {
     const gruposMap = new Map();
-    const ordemGrupos = ["Alertas", "Mosaicos", "Fontes Externas", "Imoveis"];
+    const ordemGrupos = ["Alertas", "Mosaicos", "Zoneamento", "Fontes Externas", "Imoveis"];
 
     ordenarCamadasPorNome(externasFiltradas).forEach((camada) => {
       const grupoNome = camada.grupoExterno || "Fontes Externas";
@@ -258,6 +261,7 @@ export default function PainelCamadas({
                 label={formatarNomeCamada(camada)}
                 checked={!!camada.visivel}
                 loading={!!camadasCarregando[camada.nome] && !!camada.visivel}
+                color={camada.legendColor}
                 onToggle={() => toggleLayer(camada.nome)}
               />
             ))}
@@ -274,6 +278,7 @@ export default function PainelCamadas({
                     label={formatarNomeCamada(camada)}
                     checked={!!camada.visivel}
                     loading={!!camadasCarregando[camada.nome] && !!camada.visivel}
+                    color={camada.legendColor}
                     onToggle={() => toggleLayer(camada.nome)}
                   />
                 ))}
