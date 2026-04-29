@@ -44,8 +44,52 @@ function deveIgnorarNaSobreposicao(camada) {
       valor.includes("MALHA MUNICIPAL") ||
       valor.includes("CGEO:ANDB2022_020302") ||
       valor.includes("MVW_APF_GEOMETRIA_REGULAR") ||
-      valor === "APF"
+      valor === "APF" ||
+      valor.includes("PLANET RONDONIA")
   );
+}
+
+function ehCamadaRaster(camada) {
+  return camada?.sourceType === "wms" || camada?.sourceType === "xyz";
+}
+
+function obterCodigoCAR(feature) {
+  const props = feature?.properties || {};
+  const candidatos = [
+    props.cod_imovel,
+    props.codImovel,
+    props.inscricao,
+    props.inscricaocar,
+    props.codigo,
+    props.car,
+  ];
+
+  return String(candidatos.find(Boolean) || "").trim().toUpperCase();
+}
+
+function ehCamadaZseeRondonia(camada) {
+  const identificadores = [
+    camada?.id,
+    camada?.titulo,
+    camada?.nome,
+    camada?.typeName,
+  ]
+    .filter(Boolean)
+    .map((valor) => String(valor).toUpperCase());
+
+  return identificadores.some(
+    (valor) =>
+      valor.includes("ZSEE RONDONIA") ||
+      valor.includes("ZSEE_2APROX_2005_312_SIRGAS2000_4674")
+  );
+}
+
+function camadaCompativelComCAR(camada, codigoCAR) {
+  if (ehCamadaZseeRondonia(camada)) {
+    return codigoCAR.startsWith("RO");
+  }
+
+  return true;
 }
 
 function montarQueryString(params = {}) {
@@ -207,6 +251,45 @@ function normalizarSubzonaZsee(valor) {
   return match ? `ZONA ${match[1]}` : texto;
 }
 
+function ehCamadaProdes(camada) {
+  const identificadores = [
+    camada?.titulo,
+    camada?.nome,
+    camada?.typeName,
+    camada?.subgrupoExterno,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toUpperCase();
+
+  return identificadores.includes("PRODES");
+}
+
+function extrairAnoProdes(feature) {
+  const props = feature?.properties || {};
+  const candidatos = [
+    props.year,
+    props.YEAR,
+    props.ano,
+    props.ANO,
+    props.anodetec,
+    props.ANODETEC,
+    props.year_deforestation,
+    props.YEAR_DEFORESTATION,
+  ];
+
+  for (const valor of candidatos) {
+    const texto = String(valor ?? "").trim();
+    const match = texto.match(/\b(19|20)\d{2}\b/);
+
+    if (match) {
+      return match[0];
+    }
+  }
+
+  return null;
+}
+
 function obterDetalhesSobreposicao(camada, featuresSobrepostas = []) {
   const identificador = [
     camada?.titulo,
@@ -218,7 +301,19 @@ function obterDetalhesSobreposicao(camada, featuresSobrepostas = []) {
     .toUpperCase();
 
   if (!identificador.includes("ZSEE")) {
-    return [];
+    if (!ehCamadaProdes(camada)) {
+      return [];
+    }
+
+    const anos = [
+      ...new Set(
+        featuresSobrepostas
+          .map((feature) => extrairAnoProdes(feature))
+          .filter(Boolean)
+      ),
+    ].sort((a, b) => Number(a) - Number(b));
+
+    return anos.length ? [`Ano(s) PRODES incidente(s): ${anos.join(", ")}`] : [];
   }
 
   const subzonas = [
@@ -273,12 +368,17 @@ export default function VerificarSobreposicao({
     const bbox = turf.bbox(buffer);
     const resultados = [];
     const camadasSobrepostasMapa = [];
+    const codigoCAR = obterCodigoCAR(areaFeature);
     const camadasConsultaveis = (camadas || []).filter((camada) => {
-      if (!camada?.nome || deveIgnorarNaSobreposicao(camada)) {
+      if (
+        !camada?.nome ||
+        deveIgnorarNaSobreposicao(camada) ||
+        ehCamadaRaster(camada)
+      ) {
         return false;
       }
 
-      return Boolean(montarUrlConsulta(camada, bbox));
+      return camadaCompativelComCAR(camada, codigoCAR) && Boolean(montarUrlConsulta(camada, bbox));
     });
     const totalCamadas = camadasConsultaveis.length;
 
