@@ -752,6 +752,10 @@ export default function WebGIS() {
 
     if (camada) {
 
+      if (!camada.layer) {
+        return;
+      }
+
       if (camada.visivel) {
 
         drawnItemsRef.current.removeLayer(camada.layer);
@@ -774,7 +778,9 @@ export default function WebGIS() {
 
     if (camada) {
 
-      drawnItemsRef.current.removeLayer(camada.layer);
+      if (camada.layer) {
+        drawnItemsRef.current.removeLayer(camada.layer);
+      }
 
       setCamadasImportadas(prev => prev.filter((c) => c.id !== id));
 
@@ -788,7 +794,9 @@ export default function WebGIS() {
 
     camadasImportadas.forEach(c => {
 
-      drawnItemsRef.current.removeLayer(c.layer);
+      if (c.layer) {
+        drawnItemsRef.current.removeLayer(c.layer);
+      }
 
     });
 

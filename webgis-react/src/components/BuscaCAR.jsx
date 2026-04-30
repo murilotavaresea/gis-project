@@ -25,7 +25,7 @@ export default function BuscaCAR({
 }) {
   const [codigoCAR, setCodigoCAR] = useState("");
   const [buscando, setBuscando] = useState(false);
-  const [buscaCompleta, setBuscaCompleta] = useState(true);
+  const [buscaCompleta, setBuscaCompleta] = useState(false);
   const [resumoBuscaCompleta, setResumoBuscaCompleta] = useState("");
   const painelRef = useRef(null);
   const carLayerRef = useRef(null);
@@ -145,7 +145,7 @@ export default function BuscaCAR({
     setCamadasImportadas((prev) => {
       const mantidas = prev.filter((camadaAtual) => {
         const mesmaConsulta =
-          camadaAtual?.origem === "car_consulta_publica" &&
+          ["car_consulta_publica", "car_consulta_status"].includes(camadaAtual?.origem) &&
           normalizarCodigoCAR(camadaAtual?.carCodigo) === codigoNormalizado;
 
         if (mesmaConsulta) {
@@ -155,7 +155,20 @@ export default function BuscaCAR({
         return !mesmaConsulta;
       });
 
-      return [...mantidas, ...camadasEncontradas];
+      return [
+        ...mantidas,
+        ...camadasEncontradas,
+        criarRegistroCamadaImportada({
+          nome: `${codigoNormalizado}_Consulta_Completa_CAR`,
+          rotulo: "Consulta completa CAR",
+          layer: null,
+          visivel: false,
+          exportavel: false,
+          carCodigo: codigoNormalizado,
+          tipoCamada: "controle_consulta_car",
+          origem: "car_consulta_status",
+        }),
+      ];
     });
 
     const mensagem =

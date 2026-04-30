@@ -39,6 +39,14 @@ const UFS_VALIDAS = new Set([
   "TO",
 ]);
 
+const TIPOS_CAMADA_RESTRITIVA = [
+  "reserva_legal",
+  "app",
+  "cobertura_solo",
+  "servidao_administrativa",
+  "utilidade_publica",
+];
+
 function obterFeaturePrincipal(layer) {
   const geojson = layer?.toGeoJSON?.();
   if (!geojson) {
@@ -224,6 +232,14 @@ function obterCamadasDoGrupo(grupo, tiposCamada = []) {
   return grupo?.camadas?.filter((camada) => tipos.has(camada?.tipoCamada)) || [];
 }
 
+function grupoTemConsultaCompletaCAR(grupo) {
+  return !!grupo?.consultaCompletaCAR;
+}
+
+function obterRotuloCamada(camada) {
+  return camada?.rotulo || camada?.nome || "Camada CAR";
+}
+
 function obterTituloGrupo(grupo, indice = 0) {
   return grupo?.carCodigo || `CAR ${indice + 1}`;
 }
@@ -290,13 +306,24 @@ export default function GerarAreaBeneficiavel({
     }
 
     const camadaImovel = grupo.camadaImovel;
-    const camadasRestritivas = obterCamadasDoGrupo(grupo, [
-      "reserva_legal",
-      "app",
-      "cobertura_solo",
-      "servidao_administrativa",
-      "utilidade_publica",
-    ]);
+    if (!grupoTemConsultaCompletaCAR(grupo)) {
+      alert(
+        "Para gerar a area beneficiavel, use Buscar CAR com a opcao 'Buscar camadas completas do CAR' ativada."
+      );
+      return;
+    }
+
+    const camadasRestritivas = obterCamadasDoGrupo(grupo, TIPOS_CAMADA_RESTRITIVA);
+    const camadasRestritivasInativas = camadasRestritivas.filter((camada) => camada?.visivel === false);
+
+    if (camadasRestritivasInativas.length) {
+      alert(
+        `Ative no painel todas as camadas restritivas encontradas para este CAR antes de gerar a area beneficiavel: ${camadasRestritivasInativas
+          .map(obterRotuloCamada)
+          .join(", ")}.`
+      );
+      return;
+    }
 
     const featureImovel = obterFeaturePrincipal(camadaImovel.layer);
     if (!featureImovel?.geometry) {
@@ -307,6 +334,7 @@ export default function GerarAreaBeneficiavel({
     const ufCAR = extrairUfDoCAR(featureImovel);
     const exigeApf = ufCAR === "MT";
     const impeditivas = camadasRestritivas
+      .filter((camada) => camada?.visivel !== false)
       .map(obterColecaoRestritiva)
       .filter((geojson) => geojson?.features?.length);
 
@@ -375,7 +403,9 @@ export default function GerarAreaBeneficiavel({
             normalizarCodigoCAR(camada?.carCodigo) === normalizarCodigoCAR(grupo?.carCodigo);
 
           if (mesmaAreaBeneficiavel) {
-            drawnItemsRef.current.removeLayer(camada.layer);
+            if (camada.layer) {
+              drawnItemsRef.current.removeLayer(camada.layer);
+            }
             return false;
           }
 

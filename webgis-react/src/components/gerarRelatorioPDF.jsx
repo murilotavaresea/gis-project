@@ -105,9 +105,10 @@ function desenharLinhaResultado(doc, y, resultado, indice) {
   const fundo = indice % 2 === 0 ? [250, 252, 251] : [243, 247, 245];
   const statusTexto = resultado.erroConsulta
     ? "Nao verificada"
-    : resultado.sobreposicao
-      ? "Com sobreposicao"
-      : "Sem sobreposicao";
+    : resultado.statusTexto ||
+      (resultado.sobreposicao
+        ? "Com sobreposicao"
+        : "Sem sobreposicao");
   const statusCor = resultado.erroConsulta
     ? [160, 102, 24]
     : resultado.sobreposicao

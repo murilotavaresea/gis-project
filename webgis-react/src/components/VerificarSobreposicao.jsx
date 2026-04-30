@@ -7,6 +7,50 @@ import config from "../config";
 
 const PROXY_WFS_BASE = config.PROXY_WFS_BASE_URL;
 const MIN_INTERSECTION_AREA_M2 = 1;
+const LISTAS_PRODES_MMA = [
+  {
+    bioma: "Amazonia",
+    url: "https://labdez.mma.gov.br/server/rest/services/Hosted/lista_mcr_amazonia_VF/FeatureServer/0/query",
+  },
+  {
+    bioma: "Mata Atlantica",
+    url: "https://labdez.mma.gov.br/server/rest/services/Hosted/lista_mcr_mata_atlantica_VF/FeatureServer/0/query",
+  },
+  {
+    bioma: "Cerrado",
+    url: "https://labdez.mma.gov.br/server/rest/services/Hosted/lista_mcr_cerrado_VF/FeatureServer/0/query",
+  },
+  {
+    bioma: "Caatinga",
+    url: "https://labdez.mma.gov.br/server/rest/services/Hosted/lista_mcr_caatinga_VF/FeatureServer/0/query",
+  },
+  {
+    bioma: "Pantanal",
+    url: "https://labdez.mma.gov.br/server/rest/services/Hosted/lista_mcr_pantanal_VF/FeatureServer/0/query",
+  },
+  {
+    bioma: "Pampa",
+    url: "https://labdez.mma.gov.br/server/rest/services/Hosted/lista_mcr_pampa_VF/FeatureServer/0/query",
+  },
+];
+
+const CAMPOS_LISTA_PRODES_MMA = [
+  "cod_imovel",
+  "uf",
+  "municipio",
+  "area_total_ha",
+  "soma_desmat",
+  "dentro_criterio",
+  "criterio_aplicado",
+  "resultados",
+  "sobrep_prodes_2019",
+  "sobrep_prodes_2020",
+  "sobrep_prodes_2021",
+  "sobrep_prodes_2022",
+  "sobrep_prodes_2023",
+  "sobrep_prodes_2024",
+  "sobrep_prodes_2025",
+];
 
 function formatarNomeCamada(camada) {
   if (camada?.titulo) {
@@ -118,6 +162,129 @@ function montarConsultaWfs({
     (bboxParam ? `&bbox=${encodeURIComponent(bboxParam)}` : "") +
     (extras ? `&${extras}` : "")
   );
+}
+
+function escaparSqlLiteral(valor = "") {
+  return String(valor).replace(/'/g, "''");
+}
+
+function formatarNumeroPtBr(valor, casas = 2) {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) {
+    return null;
+  }
+
+  return numero.toLocaleString("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: casas,
+  });
+}
+
+function extrairAtributosArcgis(feature) {
+  return feature?.attributes || feature?.properties || feature || {};
+}
+
+function montarUrlConsultaListaProdesMma(lista, codigoCAR) {
+  const query = montarQueryString({
+    base: lista.url,
+    where: `cod_imovel='${escaparSqlLiteral(codigoCAR)}'`,
+    outFields: CAMPOS_LISTA_PRODES_MMA.join(","),
+    returnGeometry: "false",
+    resultRecordCount: 5,
+    f: "json",
+  });
+
+  return `${PROXY_WFS_BASE}?${query}`;
+}
+
+function resumirRegistroProdesMma(bioma, atributos) {
+  const anosComSobreposicao = CAMPOS_LISTA_PRODES_MMA
+    .filter((campo) => campo.startsWith("sobrep_prodes_"))
+    .map((campo) => ({
+      ano: campo.replace("sobrep_prodes_", ""),
+      area: Number(atributos?.[campo] || 0),
+    }))
+    .filter((item) => Number.isFinite(item.area) && item.area > 0)
+    .map((item) => {
+      const area = formatarNumeroPtBr(item.area);
+      return area ? `${item.ano}: ${area}` : item.ano;
+    });
+
+  const detalhes = [
+    bioma,
+    atributos?.municipio ? `Municipio: ${atributos.municipio}` : null,
+    atributos?.uf ? `UF: ${atributos.uf}` : null,
+    atributos?.resultados ? `Resultado: ${atributos.resultados}` : null,
+    atributos?.dentro_criterio ? `Dentro do criterio: ${atributos.dentro_criterio}` : null,
+    atributos?.criterio_aplicado ? `Criterio: ${atributos.criterio_aplicado}` : null,
+    formatarNumeroPtBr(atributos?.soma_desmat)
+      ? `Soma desmat.: ${formatarNumeroPtBr(atributos.soma_desmat)} ha`
+      : null,
+    anosComSobreposicao.length ? `PRODES por ano: ${anosComSobreposicao.join(", ")}` : null,
+  ].filter(Boolean);
+
+  return detalhes.join(" | ");
+}
+
+async function consultarListasProdesMma(codigoCAR) {
+  if (!codigoCAR) {
+    return {
+      camada: "Listas PRODES MMA (MCR)",
+      sobreposicao: false,
+      erroConsulta: true,
+      statusTexto: "Nao verificada",
+      detalhes: ["Codigo CAR indisponivel para consulta nas listas MCR/PRODES MMA."],
+    };
+  }
+
+  const encontrados = [];
+  const falhas = [];
+
+  await Promise.all(
+    LISTAS_PRODES_MMA.map(async (lista) => {
+      try {
+        const res = await fetch(montarUrlConsultaListaProdesMma(lista, codigoCAR));
+        const text = await res.text();
+
+        if (!res.ok || text.trim().startsWith("<")) {
+          throw new Error(`Resposta invalida para ${lista.bioma}`);
+        }
+
+        const data = JSON.parse(text);
+        const features = Array.isArray(data?.features) ? data.features : [];
+
+        features.forEach((feature) => {
+          encontrados.push({
+            bioma: lista.bioma,
+            atributos: extrairAtributosArcgis(feature),
+          });
+        });
+      } catch (error) {
+        console.warn(`Erro ao consultar lista PRODES MMA - ${lista.bioma}:`, error);
+        falhas.push(lista.bioma);
+      }
+    })
+  );
+
+  if (encontrados.length) {
+    return {
+      camada: "Listas PRODES MMA (MCR)",
+      sobreposicao: true,
+      erroConsulta: false,
+      statusTexto: "Consta",
+      detalhes: encontrados.map((item) => resumirRegistroProdesMma(item.bioma, item.atributos)),
+    };
+  }
+
+  return {
+    camada: "Listas PRODES MMA (MCR)",
+    sobreposicao: false,
+    erroConsulta: falhas.length === LISTAS_PRODES_MMA.length,
+    statusTexto: falhas.length ? "Parcial" : "Nao consta",
+    detalhes: falhas.length
+      ? [`CAR nao localizado nas listas consultadas. Falha em: ${falhas.join(", ")}.`]
+      : ["CAR nao localizado nas listas MCR/PRODES MMA dos biomas consultados."],
+  };
 }
 
 function montarUrlConsulta(camada, bbox) {
@@ -454,6 +621,12 @@ export default function VerificarSobreposicao({
           });
         }
       }
+
+      showProcessingOverlay?.({
+        title: "Gerando relatorio",
+        message: "Consultando as listas MCR/PRODES MMA pelo codigo do CAR.",
+      });
+      resultados.push(await consultarListasProdesMma(codigoCAR));
 
       if (onPrepararMapaRelatorio) {
         await onPrepararMapaRelatorio({

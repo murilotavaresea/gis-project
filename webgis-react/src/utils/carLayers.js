@@ -171,7 +171,13 @@ export function agruparCamadasImportadasPorCAR(camadasImportadas = []) {
       });
     }
 
-    grupos.get(chave).camadas.push(camada);
+    if (camada?.tipoCamada !== "controle_consulta_car") {
+      grupos.get(chave).camadas.push(camada);
+    }
+
+    if (camada?.tipoCamada === "controle_consulta_car") {
+      grupos.get(chave).consultaCompletaCAR = true;
+    }
   });
 
   return [...grupos.values()]
@@ -190,6 +196,7 @@ export function agruparCamadasImportadasPorCAR(camadasImportadas = []) {
 
       return {
         ...grupo,
+        consultaCompletaCAR: !!grupo.consultaCompletaCAR,
         camadas: camadasOrdenadas,
         camadaImovel:
           camadasOrdenadas.find((camada) => camada?.tipoCamada === "area_imovel") || null,
