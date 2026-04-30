@@ -1268,6 +1268,7 @@ export default function WebGIS() {
 
         <WmsFeatureInfoOverlay
           camadas={camadas}
+          camadasImportadas={camadasImportadas}
           featureCollectionsExternas={featureCollectionsExternas}
           orderedLayerNames={nomesCamadasVisiveisOrdenadas}
           proxyBaseUrl={`${config.API_BASE_URL}/proxy/wms`}

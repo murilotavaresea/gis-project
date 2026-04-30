@@ -577,6 +577,8 @@ export default function DrawTools({
         onClose={() => setMostrarBuscaCAR(false)}
         visivel={mostrarBuscaCAR}
         setCarLayerBusca={setCarLayerBusca}
+        setCamadasImportadas={setCamadasImportadas}
+        setAreaDoImovelLayer={setAreaDoImovelLayer}
         showProcessingOverlay={showProcessingOverlay}
         hideProcessingOverlay={hideProcessingOverlay}
       />

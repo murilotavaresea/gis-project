@@ -15,7 +15,8 @@ const ORDEM_TIPOS_CAMADA = {
   app: 3,
   cobertura_solo: 4,
   servidao_administrativa: 5,
-  marcadores_app: 6,
+  utilidade_publica: 6,
+  marcadores_app: 7,
   outro: 99,
 };
 
@@ -116,6 +117,14 @@ export function identificarTipoCamadaCAR(nome = "") {
 
   if (valor.includes("Servidao_Administrativa")) {
     return "servidao_administrativa";
+  }
+
+  if (
+    valor.includes("Area_Utilidade_Publica") ||
+    valor.includes("area_utilidade_publica") ||
+    valor.includes("Utilidade_Publica")
+  ) {
+    return "utilidade_publica";
   }
 
   return "outro";

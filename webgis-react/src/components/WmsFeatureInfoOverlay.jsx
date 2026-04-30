@@ -198,6 +198,42 @@ function collectVectorResults({ layers, featureCollectionsExternas, map, latlng 
   return results;
 }
 
+function collectImportedLayerResults({ camadasImportadas = [], map, latlng }) {
+  const toleranceMeters = buildToleranceMeters(map, latlng);
+  const results = [];
+
+  camadasImportadas
+    .filter((camada) => camada?.visivel !== false && camada?.layer?.toGeoJSON)
+    .forEach((camada) => {
+      const geojson = camada.layer.toGeoJSON();
+      const features =
+        geojson?.type === "FeatureCollection"
+          ? geojson.features || []
+          : geojson?.type === "Feature"
+            ? [geojson]
+            : [];
+      let matchedInLayer = 0;
+
+      features.forEach((feature) => {
+        if (!featureMatchesClick(feature, map, latlng, toleranceMeters)) {
+          return;
+        }
+
+        matchedInLayer += 1;
+        results.push({
+          layer: camada,
+          attrs: feature,
+          label:
+            matchedInLayer > 1
+              ? `${camada.rotulo || camada.nome || "Camada importada"} · Feicao ${matchedInLayer}`
+              : camada.rotulo || camada.nome || "Camada importada",
+        });
+      });
+    });
+
+  return results;
+}
+
 async function requestFeatureInfo({ proxyBaseUrl, layer, map, latlng, signal }) {
   const size = map.getSize();
   const bounds = map.getBounds();
@@ -259,6 +295,7 @@ async function requestFeatureInfo({ proxyBaseUrl, layer, map, latlng, signal }) 
 
 export default function WmsFeatureInfoOverlay({
   camadas,
+  camadasImportadas = [],
   featureCollectionsExternas = {},
   orderedLayerNames = [],
   proxyBaseUrl,
@@ -332,6 +369,13 @@ export default function WmsFeatureInfoOverlay({
         map,
         latlng: event.latlng,
       });
+      results.push(
+        ...collectImportedLayerResults({
+          camadasImportadas,
+          map,
+          latlng: event.latlng,
+        })
+      );
 
       if (abortRef.current) {
         abortRef.current.abort();
@@ -395,7 +439,14 @@ export default function WmsFeatureInfoOverlay({
         abortRef.current.abort();
       }
     };
-  }, [activeIdentifyLayers, featureCollectionsExternas, map, orderedVisibleLayers, proxyBaseUrl]);
+  }, [
+    activeIdentifyLayers,
+    camadasImportadas,
+    featureCollectionsExternas,
+    map,
+    orderedVisibleLayers,
+    proxyBaseUrl,
+  ]);
 
   return null;
 }

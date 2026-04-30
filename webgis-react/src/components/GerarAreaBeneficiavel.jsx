@@ -82,6 +82,21 @@ function obterColecaoCoberturaSoloFiltrada(layer) {
   return filtrado?.features?.length ? filtrado : null;
 }
 
+function obterColecaoRestritiva(camada) {
+  if (!camada?.layer) {
+    return null;
+  }
+
+  if (
+    camada.tipoCamada === "cobertura_solo" &&
+    camada.origem !== "car_consulta_publica"
+  ) {
+    return obterColecaoCoberturaSoloFiltrada(camada.layer);
+  }
+
+  return obterColecaoGeoJSON(camada.layer);
+}
+
 function extrairUfDoCAR(feature) {
   const props = feature?.properties || {};
   const candidatos = [
@@ -204,8 +219,9 @@ async function buscarApfExterna(featureImovel, camadas = []) {
   return geojson;
 }
 
-function obterCamadaDoGrupo(grupo, tipoCamada) {
-  return grupo?.camadas?.find((camada) => camada?.tipoCamada === tipoCamada) || null;
+function obterCamadasDoGrupo(grupo, tiposCamada = []) {
+  const tipos = new Set(tiposCamada);
+  return grupo?.camadas?.filter((camada) => tipos.has(camada?.tipoCamada)) || [];
 }
 
 function obterTituloGrupo(grupo, indice = 0) {
@@ -274,10 +290,13 @@ export default function GerarAreaBeneficiavel({
     }
 
     const camadaImovel = grupo.camadaImovel;
-    const camadaRL = obterCamadaDoGrupo(grupo, "reserva_legal");
-    const camadaAPP = obterCamadaDoGrupo(grupo, "app");
-    const camadaCoberturaSolo = obterCamadaDoGrupo(grupo, "cobertura_solo");
-    const camadaServidao = obterCamadaDoGrupo(grupo, "servidao_administrativa");
+    const camadasRestritivas = obterCamadasDoGrupo(grupo, [
+      "reserva_legal",
+      "app",
+      "cobertura_solo",
+      "servidao_administrativa",
+      "utilidade_publica",
+    ]);
 
     const featureImovel = obterFeaturePrincipal(camadaImovel.layer);
     if (!featureImovel?.geometry) {
@@ -287,12 +306,9 @@ export default function GerarAreaBeneficiavel({
 
     const ufCAR = extrairUfDoCAR(featureImovel);
     const exigeApf = ufCAR === "MT";
-    const impeditivas = [
-      obterColecaoGeoJSON(camadaRL?.layer),
-      obterColecaoGeoJSON(camadaAPP?.layer),
-      obterColecaoCoberturaSoloFiltrada(camadaCoberturaSolo?.layer),
-      obterColecaoGeoJSON(camadaServidao?.layer),
-    ].filter(Boolean);
+    const impeditivas = camadasRestritivas
+      .map(obterColecaoRestritiva)
+      .filter((geojson) => geojson?.features?.length);
 
     let apfGeojson = null;
 
@@ -388,7 +404,7 @@ export default function GerarAreaBeneficiavel({
 
   const handleAbrirFluxo = () => {
     if (!gruposCAR.length) {
-      alert("Area do imovel nao encontrada.");
+      alert("Area do imovel nao encontrada. Use Buscar CAR para carregar as camadas do imovel.");
       return;
     }
 
