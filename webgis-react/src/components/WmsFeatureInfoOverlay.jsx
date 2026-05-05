@@ -72,7 +72,7 @@ function buildFeatureInfoPopupContent(results = []) {
   }
 
   if (results.length === 1) {
-    return formatarPopupAtributos(results[0].attrs);
+    return formatarPopupAtributos(results[0].attrs, results[0].label);
   }
 
   const root = document.createElement("div");
@@ -94,7 +94,7 @@ function buildFeatureInfoPopupContent(results = []) {
 
   const renderActiveResult = (index) => {
     const activeResult = results[index];
-    content.innerHTML = formatarPopupAtributos(activeResult.attrs) || "";
+    content.innerHTML = formatarPopupAtributos(activeResult.attrs, activeResult.label) || "";
 
     [...list.querySelectorAll(".feature-info-item")].forEach((button, buttonIndex) => {
       button.classList.toggle("is-active", buttonIndex === index);

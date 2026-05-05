@@ -1,8 +1,11 @@
 ESTADOS_IMOVEIS_SNCI = [
+    ("AC", "Acre"),
     ("AL", "Alagoas"),
     ("AP", "Amapa"),
     ("AM", "Amazonas"),
     ("BA", "Bahia"),
+    ("CE", "Ceara"),
+    ("DF", "Distrito Federal"),
     ("ES", "Espirito Santo"),
     ("GO", "Goias"),
     ("MA", "Maranhao"),
@@ -11,8 +14,9 @@ ESTADOS_IMOVEIS_SNCI = [
     ("MG", "Minas Gerais"),
     ("PA", "Para"),
     ("PB", "Paraiba"),
-    ("PR", "Parana"),
     ("PE", "Pernambuco"),
+    ("PI", "Piaui"),
+    ("PR", "Parana"),
     ("RJ", "Rio de Janeiro"),
     ("RN", "Rio Grande do Norte"),
     ("RS", "Rio Grande do Sul"),
@@ -30,15 +34,19 @@ ESTADOS_IMOVEIS_SIGEF = [
     ("AP", "Amapa"),
     ("AM", "Amazonas"),
     ("BA", "Bahia"),
+    ("CE", "Ceara"),
+    ("DF", "Distrito Federal"),
     ("ES", "Espirito Santo"),
     ("GO", "Goias"),
     ("MA", "Maranhao"),
     ("MT", "Mato Grosso"),
     ("MS", "Mato Grosso do Sul"),
     ("MG", "Minas Gerais"),
+    ("PA", "Para"),
     ("PB", "Paraiba"),
-    ("PR", "Parana"),
     ("PE", "Pernambuco"),
+    ("PI", "Piaui"),
+    ("PR", "Parana"),
     ("RJ", "Rio de Janeiro"),
     ("RN", "Rio Grande do Norte"),
     ("RS", "Rio Grande do Sul"),
@@ -105,21 +113,30 @@ PLANET_RONDONIA_2026_LAYERS = [
 ]
 
 
-def criar_camadas_imoveis(estados, tema_prefixo, subgrupo_externo):
-    return [
-        {
+SIGEF_USAR_WFS = False
+
+INCRA_I3GEO_BASE = "http://acervofundiario.incra.gov.br/i3geo/ogc.php"
+
+
+def criar_camadas_imoveis(estados, tema_prefixo, subgrupo_externo, source_type="wms"):
+    camadas = []
+    for uf, nome_estado in estados:
+        type_name = f"{tema_prefixo}_{uf.lower()}"
+        base = {
             "titulo": nome_estado,
-            "typeName": f"{tema_prefixo}_{uf.lower()}",
-            "wms": f"http://acervofundiario.incra.gov.br/i3geo/ogc.php?tema={tema_prefixo}_{uf.lower()}",
+            "typeName": type_name,
             "identifyEnabled": True,
             "opacity": 0.42,
             "minZoom": 7,
-            "sourceType": "wms",
+            "sourceType": source_type,
             "grupoExterno": "Imoveis",
             "subgrupoExterno": subgrupo_externo,
         }
-        for uf, nome_estado in estados
-    ]
+        if source_type == "wfs":
+            camadas.append({**base, "wfs": INCRA_I3GEO_BASE, "useProxy": "always", "requestTimeoutMs": 90000})
+        else:
+            camadas.append({**base, "wms": f"{INCRA_I3GEO_BASE}?tema={type_name}"})
+    return camadas
 
 
 def criar_camadas_areas_atribuidas():
@@ -379,5 +396,6 @@ CAMADAS_EXTERNAS_FALLBACK = [
         ESTADOS_IMOVEIS_SIGEF,
         "certificada_sigef_particular",
         "Imoveis Privados SIGEF",
+        "wfs" if SIGEF_USAR_WFS else "wms",
     ),
 ]

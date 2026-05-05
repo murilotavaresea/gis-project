@@ -1,8 +1,11 @@
 const ESTADOS_IMOVEIS_SNCI = [
+  ["AC", "Acre"],
   ["AL", "Alagoas"],
   ["AP", "Amapa"],
   ["AM", "Amazonas"],
   ["BA", "Bahia"],
+  ["CE", "Ceara"],
+  ["DF", "Distrito Federal"],
   ["ES", "Espirito Santo"],
   ["GO", "Goias"],
   ["MA", "Maranhao"],
@@ -11,8 +14,9 @@ const ESTADOS_IMOVEIS_SNCI = [
   ["MG", "Minas Gerais"],
   ["PA", "Para"],
   ["PB", "Paraiba"],
-  ["PR", "Parana"],
   ["PE", "Pernambuco"],
+  ["PI", "Piaui"],
+  ["PR", "Parana"],
   ["RJ", "Rio de Janeiro"],
   ["RN", "Rio Grande do Norte"],
   ["RS", "Rio Grande do Sul"],
@@ -30,15 +34,19 @@ const ESTADOS_IMOVEIS_SIGEF = [
   ["AP", "Amapa"],
   ["AM", "Amazonas"],
   ["BA", "Bahia"],
+  ["CE", "Ceara"],
+  ["DF", "Distrito Federal"],
   ["ES", "Espirito Santo"],
   ["GO", "Goias"],
   ["MA", "Maranhao"],
   ["MT", "Mato Grosso"],
   ["MS", "Mato Grosso do Sul"],
   ["MG", "Minas Gerais"],
+  ["PA", "Para"],
   ["PB", "Paraiba"],
-  ["PR", "Parana"],
   ["PE", "Pernambuco"],
+  ["PI", "Piaui"],
+  ["PR", "Parana"],
   ["RJ", "Rio de Janeiro"],
   ["RN", "Rio Grande do Norte"],
   ["RS", "Rio Grande do Sul"],
@@ -104,18 +112,28 @@ const PLANET_RONDONIA_2026_LAYERS = [
   ["03", "Marco", "planet_032026"],
 ];
 
-function criarCamadasImoveis(estados, temaPrefixo, subgrupoExterno) {
-  return estados.map(([uf, nomeEstado]) => ({
-    titulo: nomeEstado,
-    typeName: `${temaPrefixo}_${uf.toLowerCase()}`,
-    wms: `http://acervofundiario.incra.gov.br/i3geo/ogc.php?tema=${temaPrefixo}_${uf.toLowerCase()}`,
-    identifyEnabled: true,
-    opacity: 0.42,
-    minZoom: 7,
-    sourceType: "wms",
-    grupoExterno: "Imoveis",
-    subgrupoExterno,
-  }));
+const SIGEF_USAR_WFS = false;
+
+const INCRA_I3GEO_BASE = "http://acervofundiario.incra.gov.br/i3geo/ogc.php";
+
+function criarCamadasImoveis(estados, temaPrefixo, subgrupoExterno, sourceType = "wms") {
+  return estados.map(([uf, nomeEstado]) => {
+    const typeName = `${temaPrefixo}_${uf.toLowerCase()}`;
+    const base = {
+      titulo: nomeEstado,
+      typeName,
+      identifyEnabled: true,
+      opacity: 0.42,
+      minZoom: 7,
+      sourceType,
+      grupoExterno: "Imoveis",
+      subgrupoExterno,
+    };
+    if (sourceType === "wfs") {
+      return { ...base, wfs: INCRA_I3GEO_BASE, useProxy: "always", requestTimeoutMs: 90000 };
+    }
+    return { ...base, wms: `${INCRA_I3GEO_BASE}?tema=${typeName}` };
+  });
 }
 
 function criarCamadasAreasAtribuidas() {
@@ -364,7 +382,8 @@ const camadasExternasFallback = [
   ...criarCamadasImoveis(
     ESTADOS_IMOVEIS_SIGEF,
     "certificada_sigef_particular",
-    "Imoveis Privados SIGEF"
+    "Imoveis Privados SIGEF",
+    SIGEF_USAR_WFS ? "wfs" : "wms"
   ),
 ];
 

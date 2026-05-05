@@ -1,3 +1,8 @@
+const CAMPOS_GEOMETRIA = new Set([
+  "geometry", "geom", "the_geom", "geojson", "shape", "wkb_geometry",
+  "st_asgeojson", "geo", "geom_wkt", "wkt", "bbox", "boundingbox",
+]);
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -61,9 +66,11 @@ function extrairAtributos(item) {
   return { valor: item };
 }
 
-export default function formatarPopupAtributos(item) {
+export default function formatarPopupAtributos(item, titulo = "Detalhes da Feição") {
   const props = extrairAtributos(item);
-  const entradas = Object.entries(props).filter(([, valor]) => valor !== undefined);
+  const entradas = Object.entries(props).filter(
+    ([chave, valor]) => valor !== undefined && !CAMPOS_GEOMETRIA.has(chave.toLowerCase())
+  );
 
   if (entradas.length === 0) {
     return null;
@@ -87,7 +94,7 @@ export default function formatarPopupAtributos(item) {
 
   return `
     <div class="custom-popup">
-      <div class="custom-popupHeader">Detalhes da Feicao</div>
+      <div class="custom-popupHeader">${escapeHtml(titulo)}</div>
       <table class="custom-popupTable">
         <tbody>${linhas}</tbody>
       </table>

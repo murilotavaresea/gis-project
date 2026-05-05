@@ -30,6 +30,7 @@ export default function ExternalWmsLayer({
   opacity = 1,
   params = {},
   onLoadingChange,
+  onErrorChange,
 }) {
   const map = useMap();
   const [zoomAtual, setZoomAtual] = useState(map.getZoom());
@@ -37,7 +38,9 @@ export default function ExternalWmsLayer({
     shouldStartWithProxy({ targetUrl: url, useProxy, proxyBaseUrl: baseUrl })
   );
   const pendingTilesRef = useRef(0);
+  const tileSuccessCountRef = useRef(0);
   const onLoadingChangeRef = useRef(onLoadingChange);
+  const onErrorChangeRef = useRef(onErrorChange);
   const canFallbackToProxy = canUseProxy(useProxy, baseUrl);
   const tileUrl = useMemo(
     () =>
@@ -63,6 +66,10 @@ export default function ExternalWmsLayer({
   useEffect(() => {
     onLoadingChangeRef.current = onLoadingChange;
   }, [onLoadingChange]);
+
+  useEffect(() => {
+    onErrorChangeRef.current = onErrorChange;
+  }, [onErrorChange]);
 
   useEffect(() => {
     setUseProxyForTiles(
@@ -112,6 +119,8 @@ export default function ExternalWmsLayer({
       crs={wmsCrs}
       eventHandlers={{
         loading: () => {
+          tileSuccessCountRef.current = 0;
+          onErrorChangeRef.current?.(null);
           onLoadingChangeRef.current?.(true);
         },
         tileloadstart: () => {
@@ -119,6 +128,7 @@ export default function ExternalWmsLayer({
           onLoadingChangeRef.current?.(true);
         },
         tileload: () => {
+          tileSuccessCountRef.current += 1;
           pendingTilesRef.current = Math.max(0, pendingTilesRef.current - 1);
           if (pendingTilesRef.current === 0) {
             onLoadingChangeRef.current?.(false);
@@ -128,6 +138,7 @@ export default function ExternalWmsLayer({
           pendingTilesRef.current = Math.max(0, pendingTilesRef.current - 1);
 
           if (!useProxyForTiles && canFallbackToProxy) {
+            tileSuccessCountRef.current = 0;
             pendingTilesRef.current = 0;
             setUseProxyForTiles(true);
             onLoadingChangeRef.current?.(true);
@@ -141,6 +152,9 @@ export default function ExternalWmsLayer({
         load: () => {
           pendingTilesRef.current = 0;
           onLoadingChangeRef.current?.(false);
+          if (tileSuccessCountRef.current === 0) {
+            onErrorChangeRef.current?.("Falha ao carregar tiles do serviço");
+          }
         },
       }}
       {...wmsParams}

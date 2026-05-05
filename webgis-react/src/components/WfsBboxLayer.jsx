@@ -69,6 +69,7 @@ export default function WfsBboxLayer({
   requestTimeoutMs = 30000,
   useProxy = true,
   onLoadingChange,
+  onErrorChange,
   onDataChange,
 }) {
   const map = useMap();
@@ -128,9 +129,15 @@ export default function WfsBboxLayer({
     useProxy,
   ]);
 
+  const onErrorChangeRef = useRef(onErrorChange);
+
   useEffect(() => {
     onLoadingChangeRef.current = onLoadingChange;
   }, [onLoadingChange]);
+
+  useEffect(() => {
+    onErrorChangeRef.current = onErrorChange;
+  }, [onErrorChange]);
 
   useEffect(() => {
     onDataChangeRef.current = onDataChange;
@@ -224,6 +231,7 @@ export default function WfsBboxLayer({
     const timeoutId = window.setTimeout(() => {
       activeController.abort("timeout");
     }, requestTimeoutMs);
+    onErrorChangeRef.current?.(null);
     onLoadingChangeRef.current?.(true);
 
     const typeParamName = String(wfsVersion).startsWith("2.") ? "typenames" : "typeName";
@@ -351,6 +359,7 @@ export default function WfsBboxLayer({
           setData(null);
           onDataChangeRef.current?.(null);
           onLoadingChangeRef.current?.(false);
+          onErrorChangeRef.current?.(`Serviço indisponível (HTTP ${res.status})`);
           return;
         }
 
@@ -367,6 +376,7 @@ export default function WfsBboxLayer({
           setData(null);
           onDataChangeRef.current?.(null);
           onLoadingChangeRef.current?.(false);
+          onErrorChangeRef.current?.("Formato de resposta inválido");
           return;
         }
 
@@ -416,6 +426,7 @@ export default function WfsBboxLayer({
           setData(null);
           onDataChangeRef.current?.(null);
           onLoadingChangeRef.current?.(false);
+          onErrorChangeRef.current?.("Tempo limite excedido");
         }
         return;
       }
@@ -423,6 +434,7 @@ export default function WfsBboxLayer({
       setData(null);
       onDataChangeRef.current?.(null);
       onLoadingChangeRef.current?.(false);
+      onErrorChangeRef.current?.("Erro ao carregar dados");
     } finally {
       window.clearTimeout(timeoutId);
     }

@@ -250,6 +250,7 @@ export default function WebGIS() {
 
   const [carLayerBusca, setCarLayerBusca] = useState(null);
   const [camadasCarregando, setCamadasCarregando] = useState({});
+  const [camadasErros, setCamadasErros] = useState({});
   const [featureCollectionsExternas, setFeatureCollectionsExternas] = useState({});
   const [processingOverlay, setProcessingOverlay] = useState({
     active: false,
@@ -482,7 +483,30 @@ export default function WebGIS() {
     });
   };
 
+  const atualizarErroCamada = useCallback((nomeCamada, erro) => {
+    setCamadasErros((prev) => {
+      if (!nomeCamada) return prev;
+      if (!erro) {
+        if (!prev[nomeCamada]) return prev;
+        const next = { ...prev };
+        delete next[nomeCamada];
+        return next;
+      }
+      if (prev[nomeCamada] === erro) return prev;
+      return { ...prev, [nomeCamada]: erro };
+    });
+  }, []);
+
   const atualizarCarregamentoCamada = useCallback((nomeCamada, carregando) => {
+    if (carregando) {
+      setCamadasErros((prev) => {
+        if (!prev[nomeCamada]) return prev;
+        const next = { ...prev };
+        delete next[nomeCamada];
+        return next;
+      });
+    }
+
     setCamadasCarregando((estadoAtual) => {
       if (!nomeCamada) {
         return estadoAtual;
@@ -1097,6 +1121,7 @@ export default function WebGIS() {
             removerTodosDesenhos={removerTodosDesenhos}
             indiceEditando={indiceEditando}
             camadasCarregando={camadasCarregando}
+            camadasErros={camadasErros}
           />
         )}
 
@@ -1165,6 +1190,7 @@ export default function WebGIS() {
                 opacity={c.opacity}
                 params={c.wmsParams}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
+                onErrorChange={(erro) => atualizarErroCamada(c.nome, erro)}
               />
             );
           }
@@ -1184,6 +1210,7 @@ export default function WebGIS() {
                 opacity={c.opacity}
                 options={c.xyzOptions}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
+                onErrorChange={(erro) => atualizarErroCamada(c.nome, erro)}
               />
             );
           }
@@ -1263,6 +1290,7 @@ export default function WebGIS() {
                 onEachFeature={criarHandleEachFeature(nomeReferencia)}
                 style={criarStyleCamada(nomeReferencia)}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
+                onErrorChange={(erro) => atualizarErroCamada(c.nome, erro)}
                 onDataChange={(data) => atualizarFeatureCollectionExterna(c.nome, data)}
               />
 

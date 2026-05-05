@@ -71,7 +71,19 @@ function LoadingIndicator() {
   );
 }
 
-function LayerRow({ label, checked, onToggle, right, loading = false, color = null }) {
+function ErrorIndicator({ mensagem }) {
+  return (
+    <span
+      className="pc-errorBadge"
+      title={mensagem || "Erro ao carregar camada"}
+      aria-label="Erro ao carregar camada"
+    >
+      ⚠
+    </span>
+  );
+}
+
+function LayerRow({ label, checked, onToggle, right, loading = false, error = null, color = null }) {
   const handleKeyDown = (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -98,7 +110,7 @@ function LayerRow({ label, checked, onToggle, right, loading = false, color = nu
       </div>
 
       <div className="pc-layerRight">
-        {loading && <LoadingIndicator />}
+        {error ? <ErrorIndicator mensagem={error} /> : loading && <LoadingIndicator />}
         <Toggle checked={checked} onChange={onToggle} />
         {right}
       </div>
@@ -124,6 +136,7 @@ export default function PainelCamadas({
   removerTodosDesenhos,
   indiceEditando,
   camadasCarregando = {},
+  camadasErros = {},
 }) {
   const [busca, setBusca] = useState("");
 
@@ -261,6 +274,7 @@ export default function PainelCamadas({
                 label={formatarNomeCamada(camada)}
                 checked={!!camada.visivel}
                 loading={!!camadasCarregando[camada.nome] && !!camada.visivel}
+                error={camadasErros[camada.nome] || null}
                 color={camada.legendColor}
                 onToggle={() => toggleLayer(camada.nome)}
               />
@@ -278,6 +292,7 @@ export default function PainelCamadas({
                     label={formatarNomeCamada(camada)}
                     checked={!!camada.visivel}
                     loading={!!camadasCarregando[camada.nome] && !!camada.visivel}
+                    error={camadasErros[camada.nome] || null}
                     color={camada.legendColor}
                     onToggle={() => toggleLayer(camada.nome)}
                   />

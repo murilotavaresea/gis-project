@@ -26,11 +26,14 @@ export default function ExternalXyzLayer({
   opacity = 1,
   options = {},
   onLoadingChange,
+  onErrorChange,
 }) {
   const map = useMap();
   const [zoomAtual, setZoomAtual] = useState(map.getZoom());
   const pendingTilesRef = useRef(0);
+  const tileSuccessCountRef = useRef(0);
   const onLoadingChangeRef = useRef(onLoadingChange);
+  const onErrorChangeRef = useRef(onErrorChange);
   const paneName = useMemo(() => buildPaneName(paneKey || url), [paneKey, url]);
   const tileUrl = useMemo(
     () => (useProxy && proxyBaseUrl ? buildXyzProxyUrl(url, proxyBaseUrl) : url),
@@ -40,6 +43,10 @@ export default function ExternalXyzLayer({
   useEffect(() => {
     onLoadingChangeRef.current = onLoadingChange;
   }, [onLoadingChange]);
+
+  useEffect(() => {
+    onErrorChangeRef.current = onErrorChange;
+  }, [onErrorChange]);
 
   useEffect(() => {
     let pane = map.getPane(paneName);
@@ -83,6 +90,8 @@ export default function ExternalXyzLayer({
       crossOrigin
       eventHandlers={{
         loading: () => {
+          tileSuccessCountRef.current = 0;
+          onErrorChangeRef.current?.(null);
           onLoadingChangeRef.current?.(true);
         },
         tileloadstart: () => {
@@ -90,6 +99,7 @@ export default function ExternalXyzLayer({
           onLoadingChangeRef.current?.(true);
         },
         tileload: () => {
+          tileSuccessCountRef.current += 1;
           pendingTilesRef.current = Math.max(0, pendingTilesRef.current - 1);
           if (pendingTilesRef.current === 0) {
             onLoadingChangeRef.current?.(false);
@@ -104,6 +114,9 @@ export default function ExternalXyzLayer({
         load: () => {
           pendingTilesRef.current = 0;
           onLoadingChangeRef.current?.(false);
+          if (tileSuccessCountRef.current === 0) {
+            onErrorChangeRef.current?.("Falha ao carregar tiles do serviço");
+          }
         },
       }}
       {...options}

@@ -932,6 +932,21 @@
   justify-content: center;
 }
 
+.pc-errorBadge {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(180, 60, 40, 0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: #b43c28;
+  cursor: default;
+  flex-shrink: 0;
+}
+
 .pc-inlineSpinner,
 .processing-spinner {
   display: inline-block;
@@ -2384,6 +2399,23 @@ footer {
   background: transparent;
 }
 
+.custom-popup::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-popup::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-popup::-webkit-scrollbar-thumb {
+  background: rgba(109, 97, 104, 0.25);
+  border-radius: 2px;
+}
+
+.custom-popup::-webkit-scrollbar-thumb:hover {
+  background: rgba(109, 97, 104, 0.45);
+}
+
 .custom-popupHeader {
   margin-bottom: 6px;
   padding: 0 0 8px;
@@ -2430,12 +2462,18 @@ footer {
 
 .custom-popupField {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   color: rgba(78, 69, 75, 0.42);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.custom-popupRow:hover .custom-popupField {
+  opacity: 1;
 }
 
 .custom-popupValue {
