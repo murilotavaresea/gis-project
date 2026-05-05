@@ -26,28 +26,28 @@ function MeasurementPanel({
       <button className="close-button" onClick={onClose} type="button">
         x
       </button>
-      <h3>{tipo === "polygon" ? "MEDIR AREA" : "MEDIR DISTANCIA"}</h3>
+      <h3>{tipo === "polygon" ? "MEDIR ÁREA" : "MEDIR DISTÂNCIA"}</h3>
       <div className="unit-selector">
         <label>Unidade:</label>
         <select value={unidade} onChange={(e) => setUnidade(e.target.value)}>
           {tipo === "polygon" ? (
             <>
-              <option value="mÂ²">mÂ²</option>
+              <option value="m²">m²</option>
               <option value="ha">hectares</option>
-              <option value="kmÂ²">kmÂ²</option>
+              <option value="km²">km²</option>
               <option value="alq">alqueires paulistas</option>
             </>
           ) : (
             <>
               <option value="m">metros</option>
-              <option value="km">quilometros</option>
+              <option value="km">quilômetros</option>
             </>
           )}
         </select>
       </div>
       <div className="measurement-panelResult">
         <strong>Resultado:</strong>
-        <span>{resultado || "Pronto para iniciar uma nova medicao."}</span>
+        <span>{resultado || "Pronto para iniciar uma nova medição."}</span>
       </div>
       <div className="measurement-panelActions">
         <button className="start-button" onClick={onStart} type="button" disabled={medindo}>
@@ -315,17 +315,17 @@ export default function DrawTools({
         let unidadeStr = "";
 
         switch (unidade) {
-          case "mÂ²":
+          case "m²":
             valor = areaM2;
-            unidadeStr = "mÂ²";
+            unidadeStr = "m²";
             break;
           case "ha":
             valor = areaM2 / 10000;
             unidadeStr = "hectares";
             break;
-          case "kmÂ²":
+          case "km²":
             valor = areaM2 / 1e6;
-            unidadeStr = "kmÂ²";
+            unidadeStr = "km²";
             break;
           case "alq":
             valor = areaM2 / 24200;
@@ -333,7 +333,7 @@ export default function DrawTools({
             break;
           default:
             valor = areaM2;
-            unidadeStr = "mÂ²";
+            unidadeStr = "m²";
             break;
         }
 
@@ -364,8 +364,8 @@ export default function DrawTools({
       setLinhasMedicao(segmentos);
       setResultado(
         unidade === "km"
-          ? `Distancia total: ${total.toFixed(2)} km`
-          : `Distancia total: ${(total * 1000).toFixed(2)} m`
+          ? `Distância total: ${total.toFixed(2)} km`
+          : `Distância total: ${(total * 1000).toFixed(2)} m`
       );
       setMedindo(false);
     };
@@ -451,11 +451,11 @@ export default function DrawTools({
           </button>
           {showDrawSubmenu && (
             <div className="tool-submenu">
-              <button onClick={() => startDraw("polygon")} title="Poligono" type="button">
-                <img src="/icons/crop.svg" alt="Poligono" style={toolIconStyle} />
+              <button onClick={() => startDraw("polygon")} title="Polígono" type="button">
+                <img src="/icons/crop.svg" alt="Polígono" style={toolIconStyle} />
               </button>
-              <button onClick={() => startDraw("rectangle")} title="Retangulo" type="button">
-                <img src="/icons/crop.svg" alt="Retangulo" style={toolIconStyle} />
+              <button onClick={() => startDraw("rectangle")} title="Retângulo" type="button">
+                <img src="/icons/crop.svg" alt="Retângulo" style={toolIconStyle} />
               </button>
               <button onClick={() => startDraw("polyline")} title="Linha" type="button">
                 <img src="/icons/line-squiggle.svg" alt="Linha" style={toolIconStyle} />
@@ -489,13 +489,13 @@ export default function DrawTools({
             <div className="tool-submenu">
               {!medindo && (
                 <>
-                  <button onClick={() => startMeasurement("polygon")} title="Area" type="button">
-                    <img src="/icons/crop.svg" alt="Area" style={toolIconStyle} />
+                  <button onClick={() => startMeasurement("polygon")} title="Área" type="button">
+                    <img src="/icons/crop.svg" alt="Área" style={toolIconStyle} />
                   </button>
-                  <button onClick={() => startMeasurement("polyline")} title="Distancia" type="button">
+                  <button onClick={() => startMeasurement("polyline")} title="Distância" type="button">
                     <img
                       src="/icons/ruler-dimension-line.svg"
-                      alt="Distancia"
+                      alt="Distância"
                       style={toolIconStyle}
                     />
                   </button>

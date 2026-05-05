@@ -25,7 +25,7 @@ export default function Login() {
       navigate("/webgis");
     } catch (error) {
       console.error("Falha no login:", error);
-      setErro("Credenciais invalidas. Verifique e tente novamente.");
+      setErro("Credenciais inválidas. Verifique e tente novamente.");
     } finally {
       setCarregando(false);
     }
@@ -38,20 +38,20 @@ export default function Login() {
       <div className="login-shell">
         <section className="login-brandPanel">
           <div className="login-brandBadge">Geoportal institucional</div>
-          <h1>Inteligencia territorial em um painel unico</h1>
+          <h1>Inteligência territorial em um painel único</h1>
           <p>
             Acesse o ambiente operacional para visualizar camadas, importar arquivos e conduzir
-            analises espaciais com mais clareza.
+            análises espaciais com mais clareza.
           </p>
 
           <div className="login-brandStats">
             <div>
               <strong>Mapas</strong>
-              <span>Base centralizada para operacao</span>
+              <span>Base centralizada para operação</span>
             </div>
             <div>
-              <strong>Analises</strong>
-              <span>Ferramentas de verificacao e relatorio</span>
+              <strong>Análises</strong>
+              <span>Ferramentas de verificação e relatório</span>
             </div>
           </div>
         </section>
@@ -59,7 +59,7 @@ export default function Login() {
         <form className="login-box" onSubmit={handleLogin}>
           <div className="login-cardEyebrow">Acesso seguro</div>
           <h2>Entrar no LiroGis</h2>
-          <p className="login-helper">Use suas credenciais para abrir o painel cartografico.</p>
+          <p className="login-helper">Use suas credenciais para abrir o painel cartográfico.</p>
 
           <label className="login-field">
             <span>E-mail</span>

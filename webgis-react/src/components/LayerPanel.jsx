@@ -71,7 +71,7 @@ export default function LayerPanel({
         <div className="layer-list" ref={listRef}>
           {camadasVisiveis.length === 0 && (
             <div className="layer-empty">
-              Ative uma camada no catalogo lateral para controlar a ordem de exibicao aqui.
+              Ative uma camada no catálogo lateral para controlar a ordem de exibição aqui.
             </div>
           )}
 

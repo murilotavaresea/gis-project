@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import * as turf from "@turf/turf";
 import config from "../config";
@@ -301,14 +301,14 @@ export default function GerarAreaBeneficiavel({
     }
 
     if (!grupo?.camadaImovel) {
-      alert("Area do imovel nao encontrada.");
+      alert("Área do imóvel não encontrada.");
       return;
     }
 
     const camadaImovel = grupo.camadaImovel;
     if (!grupoTemConsultaCompletaCAR(grupo)) {
       alert(
-        "Para gerar a area beneficiavel, use Buscar CAR com a opcao 'Buscar camadas completas do CAR' ativada."
+        "Para gerar a área beneficiável, use Buscar CAR com a opção 'Buscar camadas completas do CAR' ativada."
       );
       return;
     }
@@ -318,7 +318,7 @@ export default function GerarAreaBeneficiavel({
 
     if (camadasRestritivasInativas.length) {
       alert(
-        `Ative no painel todas as camadas restritivas encontradas para este CAR antes de gerar a area beneficiavel: ${camadasRestritivasInativas
+        `Ative no painel todas as camadas restritivas encontradas para este CAR antes de gerar a área beneficiável: ${camadasRestritivasInativas
           .map(obterRotuloCamada)
           .join(", ")}.`
       );
@@ -327,7 +327,7 @@ export default function GerarAreaBeneficiavel({
 
     const featureImovel = obterFeaturePrincipal(camadaImovel.layer);
     if (!featureImovel?.geometry) {
-      alert("Geometria da area do imovel nao esta disponivel.");
+      alert("Geometria da área do imóvel não está disponível.");
       return;
     }
 
@@ -343,10 +343,10 @@ export default function GerarAreaBeneficiavel({
     try {
       setGerando(true);
       showProcessingOverlay?.({
-        title: "Gerando area beneficiavel",
+        title: "Gerando área beneficiável",
         message: exigeApf
-          ? "Consultando a APF externa antes de aplicar as restricoes espaciais."
-          : "Aplicando as restricoes espaciais para calcular a area final.",
+          ? "Consultando a APF externa antes de aplicar as restrições espaciais."
+          : "Aplicando as restrições espaciais para calcular a área final.",
       });
 
       if (exigeApf) {
@@ -355,14 +355,14 @@ export default function GerarAreaBeneficiavel({
         } catch (error) {
           console.error("Erro ao buscar APF externa:", error);
           alert(
-            "Para CAR do Mato Grosso, a area beneficiavel precisa ser intersectada com a APF. Nao foi possivel validar a APF externa."
+            "Para CAR do Mato Grosso, a área beneficiável precisa ser intersectada com a APF. Não foi possível validar a APF externa."
           );
           return;
         }
       }
 
       showProcessingOverlay?.({
-        title: "Gerando area beneficiavel",
+        title: "Gerando área beneficiável",
         message: "Calculando a geometria final para adicionar o resultado ao mapa.",
       });
 
@@ -380,7 +380,7 @@ export default function GerarAreaBeneficiavel({
       const resultado = await response.json();
 
       if (!response.ok || resultado.erro) {
-        alert(`Erro ao calcular area beneficiavel: ${resultado.erro || response.status}`);
+        alert(`Erro ao calcular área beneficiável: ${resultado.erro || response.status}`);
         return;
       }
 
@@ -389,7 +389,7 @@ export default function GerarAreaBeneficiavel({
       });
 
       if (!novaLayer.getLayers().length) {
-        alert("A area beneficiavel resultou vazia apos aplicar as restricoes.");
+        alert("A área beneficiável resultou vazia após aplicar as restrições.");
         return;
       }
 
@@ -413,7 +413,7 @@ export default function GerarAreaBeneficiavel({
         }),
         criarRegistroCamadaImportada({
           nome: "Area_Beneficiavel",
-          rotulo: "Area Beneficiavel",
+          rotulo: "Área Beneficiável",
           layer: novaLayer,
           visivel: true,
           exportavel: true,
@@ -424,8 +424,8 @@ export default function GerarAreaBeneficiavel({
 
       setPainelAberto(false);
     } catch (error) {
-      console.error("Erro ao gerar area beneficiavel:", error);
-      alert("Erro ao gerar area beneficiavel.");
+      console.error("Erro ao gerar área beneficiável:", error);
+      alert("Erro ao gerar área beneficiável.");
     } finally {
       setGerando(false);
       hideProcessingOverlay?.();
@@ -434,7 +434,7 @@ export default function GerarAreaBeneficiavel({
 
   const handleAbrirFluxo = () => {
     if (!gruposCAR.length) {
-      alert("Area do imovel nao encontrada. Use Buscar CAR para carregar as camadas do imovel.");
+      alert("Área do imóvel não encontrada. Use Buscar CAR para carregar as camadas do imóvel.");
       return;
     }
 
@@ -449,8 +449,8 @@ export default function GerarAreaBeneficiavel({
 
   return (
     <>
-      <button onClick={handleAbrirFluxo} title="Gerar Ãrea BeneficiÃ¡vel" type="button">
-        <img src="/icons/plant.svg" alt="Ãrea BeneficiÃ¡vel" style={{ width: "22px", height: "22px" }} />
+      <button onClick={handleAbrirFluxo} title="Gerar Área Beneficiável" type="button">
+        <img src="/icons/plant.svg" alt="Área Beneficiável" style={{ width: "22px", height: "22px" }} />
       </button>
 
       {painelAberto && (
@@ -458,7 +458,7 @@ export default function GerarAreaBeneficiavel({
           <div className="painel-relatorio-topo">
             <div>
               <strong>Selecionar CAR</strong>
-              <p>Escolha o CAR para gerar a area beneficiavel.</p>
+              <p>Escolha o CAR para gerar a área beneficiável.</p>
             </div>
             <button className="fechar" onClick={() => setPainelAberto(false)} type="button">
               x
@@ -517,7 +517,7 @@ export default function GerarAreaBeneficiavel({
               disabled={!grupoSelecionado || gerando}
               type="button"
             >
-              {gerando ? "Gerando..." : "Gerar area deste CAR"}
+              {gerando ? "Gerando..." : "Gerar área deste CAR"}
             </button>
           </div>
         </div>

@@ -654,7 +654,7 @@ export default function VerificarSobreposicao({
   };
 
   return (
-    <button onClick={verificar} title="Verificar sobreposicao com o CAR buscado">
+    <button onClick={verificar} title="Verificar sobreposição com o CAR buscado">
       <img src="/icons/clipboard-minus.svg" alt="Verificar sobreposição" style={iconStyle} />
     </button>
   );

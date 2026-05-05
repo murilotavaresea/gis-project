@@ -273,77 +273,77 @@ export default function WebGIS() {
     {
       title: "Bem-vindo ao LiroGis",
       description:
-        "Este guia rapido apresenta as principais areas da plataforma. Voce pode avancar passo a passo ou pular quando quiser.",
+        "Este guia rápido apresenta as principais áreas da plataforma. Você pode avançar passo a passo ou pular quando quiser.",
       placement: "center",
     },
     {
       selector: "#toggle-sidebar",
       title: "Abrir e recolher o painel",
       description:
-        "Use este controle para mostrar ou esconder o painel lateral e ganhar mais area de mapa quando precisar.",
+        "Use este controle para mostrar ou esconder o painel lateral e ganhar mais área de mapa quando precisar.",
       placement: "right",
     },
     {
       selector: '[data-tour="sidebar-camadas"]',
-      title: "Catalogo",
+      title: "Catálogo",
       description:
-        "Aqui voce acessa o catalogo operacional com camadas externas, camadas importadas do CAR e desenhos manuais.",
+        "Aqui você acessa o catálogo operacional com camadas externas, camadas importadas do CAR e desenhos manuais.",
       placement: "right",
     },
     {
       selector: "#pc-search-input",
       title: "Busca de camadas",
       description:
-        "Digite aqui para localizar rapidamente uma camada pelo nome e ativar so o que interessa na analise.",
+        "Digite aqui para localizar rapidamente uma camada pelo nome e ativar só o que interessa na análise.",
       placement: "right",
     },
     {
       selector: "#layer-control",
       title: "Camadas ativas",
       description:
-        "Este painel mostra o que esta visivel no mapa. Voce pode reordenar as camadas para controlar a prioridade visual.",
+        "Este painel mostra o que está visível no mapa. Você pode reordenar as camadas para controlar a prioridade visual.",
       placement: "left",
     },
     {
       selector: "#tool-sidebar",
       title: "Barra de ferramentas",
       description:
-        "Nesta barra ficam as acoes principais de desenho, medicao, importacao, busca de CAR e analises espaciais.",
+        "Nesta barra ficam as ações principais de desenho, medição, importação, busca de CAR e análises espaciais.",
       placement: "left",
     },
     {
       selector: "#tour-tool-import-car",
       title: "Importar ZIP do CAR",
       description:
-        "Use este botao para carregar o arquivo ZIP oficial do CAR. Essa importacao organiza as camadas do imovel e prepara as analises espaciais seguintes.",
+        "Use este botão para carregar o arquivo ZIP oficial do CAR. Essa importação organiza as camadas do imóvel e prepara as análises espaciais seguintes.",
       placement: "left",
     },
     {
       selector: "#tour-tool-buscar-car",
       title: "Buscar CAR",
       description:
-        "Use este botao para consultar um imovel direto no servico oficial quando voce nao tiver o arquivo em maos.",
+        "Use este botão para consultar um imóvel direto no serviço oficial quando você não tiver o arquivo em mãos.",
       placement: "left",
     },
     {
-      selector: '[title="Gerar Ãrea BeneficiÃ¡vel"]',
-      title: "Gerar area beneficiavel",
+      selector: '[title="Gerar Área Beneficiável"]',
+      title: "Gerar área beneficiável",
       description:
-        "Este botao calcula a area beneficiavel a partir das restricoes espaciais. Para funcionar corretamente, voce precisa ter importado antes o arquivo ZIP do CAR para disponibilizar as camadas do imovel.",
+        "Este botão calcula a área beneficiável a partir das restrições espaciais. Para funcionar corretamente, você precisa ter importado antes o arquivo ZIP do CAR para disponibilizar as camadas do imóvel.",
       placement: "left",
     },
     {
-      selector: '[title="Verificar sobreposicao com o CAR buscado"]',
-      title: "Verificar sobreposicao",
+      selector: '[title="Verificar sobreposição com o CAR buscado"]',
+      title: "Verificar sobreposição",
       description:
-        "Depois de carregar um CAR, este botao cruza o imovel com as camadas ativas para gerar uma leitura espacial rapida.",
+        "Depois de carregar um CAR, este botão cruza o imóvel com as camadas ativas para gerar uma leitura espacial rápida.",
       placement: "left",
     },
     {
       selector: '[data-tour="sidebar-fontes"]',
       title: "Fontes das camadas",
       description:
-        "A aba Fontes consolida a origem dos dados externos para facilitar auditoria, rastreabilidade e conferencia tecnica.",
+        "A aba Fontes consolida a origem dos dados externos para facilitar auditoria, rastreabilidade e conferência técnica.",
       placement: "right",
     },
     {
