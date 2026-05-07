@@ -73,6 +73,34 @@ app.register_blueprint(ibama_bp)
 app.register_blueprint(auth_bp)
 
 
+def init_db():
+    conn = None
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id SERIAL PRIMARY KEY,
+                    nome VARCHAR(255) NOT NULL,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    senha_hash VARCHAR(255) NOT NULL,
+                    reset_token VARCHAR(255),
+                    reset_token_expires TIMESTAMPTZ
+                )
+                """
+            )
+            cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255)")
+            cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ")
+            conn.commit()
+        print("Tabela 'usuarios' verificada/criada.")
+    except Exception as error:
+        print("Erro ao inicializar banco:", str(error))
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 @app.route("/camadas_externas")
 def listar_camadas_externas():
     response = jsonify(camadas_externas)
@@ -193,8 +221,11 @@ def criar_usuario_teste():
             conn.close()
 
 
-if __name__ == "__main__":
-    if os.getenv("CREATE_TEST_USER", "").lower() == "true":
-        criar_usuario_teste()
+init_db()
 
+if os.getenv("CREATE_TEST_USER", "").lower() == "true":
+    criar_usuario_teste()
+
+
+if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)

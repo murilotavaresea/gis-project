@@ -1,4 +1,4 @@
-.login-container {
+.cad-container {
   position: relative;
   min-height: 100vh;
   display: flex;
@@ -13,7 +13,7 @@
     linear-gradient(135deg, #f6faf5 0%, #eaf1eb 52%, #e1ebe5 100%);
 }
 
-.login-backdrop {
+.cad-backdrop {
   position: absolute;
   inset: 0;
   background:
@@ -23,7 +23,7 @@
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.5));
 }
 
-.login-shell {
+.cad-shell {
   position: relative;
   z-index: 1;
   width: min(1120px, 100%);
@@ -33,14 +33,14 @@
   align-items: stretch;
 }
 
-.login-brandPanel,
-.login-box {
+.cad-brandPanel,
+.cad-box {
   border: 1px solid var(--color-border-soft);
   box-shadow: 0 28px 80px rgba(86, 78, 84, 0.14);
   backdrop-filter: blur(18px);
 }
 
-.login-brandPanel {
+.cad-brandPanel {
   padding: 46px;
   border-radius: 34px;
   background:
@@ -52,8 +52,8 @@
   justify-content: space-between;
 }
 
-.login-brandBadge,
-.login-cardEyebrow {
+.cad-brandBadge,
+.cad-cardEyebrow {
   display: inline-flex;
   align-items: center;
   width: fit-content;
@@ -65,99 +65,115 @@
   text-transform: uppercase;
 }
 
-.login-brandBadge {
+.cad-brandBadge {
   color: #f1f6f2;
   background: rgba(136, 195, 181, 0.18);
   border: 1px solid rgba(136, 195, 181, 0.24);
 }
 
-.login-brandPanel h1 {
-  max-width: 10ch;
+.cad-brandPanel h1 {
+  max-width: 12ch;
   margin: 24px 0 14px;
   font-family: var(--font-heading);
-  font-size: clamp(34px, 4vw, 54px);
-  line-height: 1.02;
+  font-size: clamp(30px, 3.6vw, 48px);
+  line-height: 1.05;
 }
 
-.login-brandPanel p {
-  max-width: 56ch;
+.cad-brandPanel p {
+  max-width: 52ch;
   margin: 0;
   color: rgba(248, 250, 246, 0.78);
   font-size: 15px;
   line-height: 1.72;
 }
 
-.login-brandStats {
+.cad-brandStats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-top: 38px;
 }
 
-.login-brandStats div {
+.cad-brandStats div {
   padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.08);
 }
 
-.login-brandStats strong {
+.cad-brandStats strong {
   display: block;
   margin-bottom: 6px;
-  font-size: 18px;
+  font-size: 15px;
 }
 
-.login-brandStats span {
+.cad-brandStats span {
   display: block;
   color: rgba(248, 250, 246, 0.72);
   font-size: 13px;
   line-height: 1.55;
 }
 
-.login-box {
+.cad-backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 32px;
+  color: rgba(248, 250, 246, 0.7);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.cad-backLink:hover {
+  color: #f8faf6;
+}
+
+.cad-box {
   align-self: center;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   padding: 40px;
   border-radius: 30px;
   background:
     linear-gradient(180deg, rgba(252, 253, 250, 0.96), rgba(242, 247, 242, 0.94));
 }
 
-.login-cardEyebrow {
+.cad-cardEyebrow {
   color: #54776d;
   background: rgba(136, 195, 181, 0.16);
   border: 1px solid rgba(136, 195, 181, 0.24);
 }
 
-.login-box h2 {
+.cad-box h2 {
   margin: 4px 0 0;
   color: var(--color-ink-900);
   font-family: var(--font-heading);
-  font-size: 30px;
+  font-size: 28px;
   line-height: 1.08;
 }
 
-.login-helper {
-  margin: 0 0 4px;
+.cad-helper {
+  margin: 0 0 2px;
   color: rgba(78, 69, 75, 0.68);
   font-size: 14px;
   line-height: 1.6;
 }
 
-.login-field {
+.cad-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   color: var(--color-ink-900);
   font-size: 13px;
   font-weight: 700;
 }
 
-.login-field input {
+.cad-field input {
   width: 100%;
-  height: 52px;
+  height: 50px;
   padding: 0 16px;
   border: 1px solid var(--color-border-soft);
   border-radius: 16px;
@@ -167,18 +183,18 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.login-field input::placeholder {
+.cad-field input::placeholder {
   color: rgba(78, 69, 75, 0.4);
 }
 
-.login-field input:focus {
+.cad-field input:focus {
   outline: none;
   border-color: rgba(136, 195, 181, 0.54);
   box-shadow: 0 0 0 4px rgba(136, 195, 181, 0.16);
   transform: translateY(-1px);
 }
 
-.login-error {
+.cad-error {
   padding: 14px 16px;
   border: 1px solid rgba(169, 73, 73, 0.16);
   border-radius: 16px;
@@ -188,8 +204,8 @@
   line-height: 1.5;
 }
 
-.login-box button {
-  height: 52px;
+.cad-box button[type="submit"] {
+  height: 50px;
   border: none;
   border-radius: 16px;
   background: linear-gradient(135deg, #88c3b5 0%, #6faf9d 100%);
@@ -202,55 +218,157 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
-.login-box button:hover {
+.cad-box button[type="submit"]:hover {
   transform: translateY(-1px);
   box-shadow: 0 22px 40px rgba(111, 175, 157, 0.3);
 }
 
-.login-box button:disabled {
+.cad-box button[type="submit"]:disabled {
   opacity: 0.72;
   cursor: wait;
 }
 
-.login-register-link {
+.cad-login-link {
   margin: 0;
   text-align: center;
   color: rgba(78, 69, 75, 0.68);
   font-size: 13px;
 }
 
-.login-register-link a {
+.cad-login-link a {
   color: #54776d;
   font-weight: 700;
   text-decoration: none;
 }
 
-.login-register-link a:hover {
+.cad-login-link a:hover {
   text-decoration: underline;
 }
 
+/* Success card */
+.cad-success-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  width: min(480px, 100%);
+  padding: 52px 48px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(252, 253, 250, 0.97), rgba(242, 247, 242, 0.95));
+  box-shadow: 0 28px 80px rgba(86, 78, 84, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.cad-success-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #88c3b5, #6faf9d);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(111, 175, 157, 0.32);
+}
+
+.cad-success-card h2 {
+  margin: 0;
+  color: var(--color-ink-900);
+  font-family: var(--font-heading);
+  font-size: 26px;
+}
+
+.cad-success-card p {
+  margin: 0;
+  color: rgba(78, 69, 75, 0.72);
+  font-size: 15px;
+  line-height: 1.65;
+  max-width: 36ch;
+}
+
+.cad-success-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.cad-success-actions button {
+  flex: 1;
+  height: 48px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-ink-900);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.cad-success-actions button:hover {
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.cad-success-actions a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 48px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #88c3b5, #6faf9d);
+  color: #f8faf6;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(111, 175, 157, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cad-success-actions a:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(111, 175, 157, 0.3);
+}
+
 @media (max-width: 900px) {
-  .login-shell {
+  .cad-shell {
     grid-template-columns: 1fr;
   }
 
-  .login-brandPanel h1 {
-    max-width: 14ch;
+  .cad-brandPanel h1 {
+    max-width: 16ch;
   }
 }
 
 @media (max-width: 640px) {
-  .login-container {
+  .cad-container {
     padding: 18px;
   }
 
-  .login-brandPanel,
-  .login-box {
+  .cad-brandPanel,
+  .cad-box {
     padding: 28px;
     border-radius: 24px;
   }
 
-  .login-brandStats {
+  .cad-brandStats {
     grid-template-columns: 1fr;
+  }
+
+  .cad-success-card {
+    padding: 36px 28px;
+  }
+
+  .cad-success-actions {
+    flex-direction: column;
   }
 }

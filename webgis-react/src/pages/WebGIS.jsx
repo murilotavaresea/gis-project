@@ -1098,6 +1098,7 @@ export default function WebGIS() {
         activeSection={activeSidebarView}
         onChangeSection={setActiveSidebarView}
         onStartTour={abrirIntroTour}
+        onLogout={() => { localStorage.removeItem("token"); window.location.reload(); }}
         title="LiroGis"
         subtitle="Analise territorial e inteligencia espacial"
         frameTitle={sidebarFrameTitle[activeSidebarView] || "Catalogo operacional"}

@@ -1,38 +1,52 @@
-// src/App.jsx
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Login from "./auth/Login";
-import PrivateRoute from "./auth/PrivateRoute";
 import WebGIS from "./pages/WebGIS";
-import CadastrarUsuario from "./pages/CadastrarUsuario";
+import AuthModal from "./auth/AuthModal";
+import RedefinirSenha from "./pages/RedefinirSenha";
+
+function isTokenValid() {
+  const token = localStorage.getItem("token");
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return payload.exp * 1000 > Date.now();
+  } catch {
+    localStorage.removeItem("token");
+    return false;
+  }
+}
+
+function AuthGate({ children }) {
+  const [authed, setAuthed] = useState(isTokenValid);
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    if (!authed) {
+      const t = setTimeout(() => setShowModal(true), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [authed]);
+
+  const handleSuccess = () => {
+    setAuthed(true);
+    setShowModal(false);
+  };
+
+  return (
+    <>
+      {children}
+      {showModal && !authed && <AuthModal onSuccess={handleSuccess} />}
+    </>
+  );
+}
 
 export default function App() {
   return (
     <Router>
       <Routes>
-        {/* entra direto no WebGIS */}
         <Route path="/" element={<Navigate to="/webgis" />} />
-
-        <Route path="/login" element={<Login />} />
-
-        <Route
-          path="/webgis"
-          element={
-            <PrivateRoute>
-              <WebGIS />
-            </PrivateRoute>
-          }
-        />
-
-        <Route
-          path="/admin/cadastrar-usuario"
-          element={
-            <PrivateRoute>
-              <CadastrarUsuario />
-            </PrivateRoute>
-          }
-        />
-
-        {/* qualquer rota inválida vai pro WebGIS durante testes */}
+        <Route path="/webgis" element={<AuthGate><WebGIS /></AuthGate>} />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route path="*" element={<Navigate to="/webgis" />} />
       </Routes>
     </Router>

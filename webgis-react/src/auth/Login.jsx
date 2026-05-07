@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import "./Login.css";
 import config from "../config";
@@ -88,6 +88,11 @@ export default function Login() {
           <button type="submit" disabled={carregando}>
             {carregando ? "Entrando..." : "Entrar"}
           </button>
+
+          <p className="login-register-link">
+            Não tem uma conta?{" "}
+            <Link to="/cadastro">Criar conta</Link>
+          </p>
         </form>
       </div>
     </div>

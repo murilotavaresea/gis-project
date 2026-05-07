@@ -11,6 +11,7 @@ export default function Sidebar({
   activeSection = "camadas",
   onChangeSection,
   onStartTour,
+  onLogout,
   children,
 }) {
   return (
@@ -81,6 +82,16 @@ export default function Sidebar({
                   onClick={onStartTour}
                 >
                   Tour guiado
+                </button>
+              )}
+              {onLogout && (
+                <button
+                  type="button"
+                  className="sb-logoutBtn"
+                  onClick={onLogout}
+                  title="Encerrar sessão"
+                >
+                  Sair
                 </button>
               )}
             </div>

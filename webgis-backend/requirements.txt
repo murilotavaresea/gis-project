@@ -8,3 +8,5 @@ shapely
 requests
 PyJWT
 geoalchemy2
+resend
+werkzeug
