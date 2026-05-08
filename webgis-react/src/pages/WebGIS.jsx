@@ -697,6 +697,13 @@ export default function WebGIS() {
     setIntroTourStep(0);
     setActiveSidebarView("camadas");
   }, []);
+
+  useEffect(() => {
+    const onTourRequest = () => abrirIntroTour();
+    window.addEventListener("tour:request", onTourRequest);
+    return () => window.removeEventListener("tour:request", onTourRequest);
+  }, [abrirIntroTour]);
+
   useEffect(() => {
 
     const fetchCamadas = async () => {

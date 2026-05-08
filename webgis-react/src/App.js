@@ -56,7 +56,7 @@ function AuthGate({ children }) {
   const handleStartTour = () => {
     clearTimeout(timerRef.current);
     setShowModal(false);
-    window.dispatchEvent(new Event("tour:start"));
+    window.dispatchEvent(new Event("tour:request"));
   };
 
   return (
