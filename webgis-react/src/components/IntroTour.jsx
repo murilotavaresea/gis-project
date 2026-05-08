@@ -221,6 +221,18 @@ export default function IntroTour({
               height: `${targetRect.height + 16}px`,
             }}
           />
+          <div
+            aria-hidden="true"
+            style={{
+              position: "fixed",
+              left: `${targetRect.left - 8}px`,
+              top: `${targetRect.top - 8}px`,
+              width: `${targetRect.width + 16}px`,
+              height: `${targetRect.height + 16}px`,
+              zIndex: 2101,
+              cursor: "default",
+            }}
+          />
         </>
       ) : (
         <div className="tour-overlay" style={{ inset: 0 }} />

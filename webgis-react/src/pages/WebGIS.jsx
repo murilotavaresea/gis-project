@@ -652,6 +652,7 @@ export default function WebGIS() {
       setActiveSidebarView("camadas");
       setIntroTourStep(0);
       setIntroTourOpen(true);
+      window.dispatchEvent(new Event("tour:start"));
     }, 700);
 
     return () => window.clearTimeout(timer);
@@ -684,11 +685,13 @@ export default function WebGIS() {
     setActiveSidebarView("camadas");
     setIntroTourStep(0);
     setIntroTourOpen(true);
+    window.dispatchEvent(new Event("tour:start"));
   }, []);
 
   const encerrarIntroTour = useCallback(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(INTRO_TOUR_STORAGE_KEY, "done");
+      window.dispatchEvent(new Event("tour:end"));
     }
 
     setIntroTourOpen(false);

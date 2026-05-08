@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import WebGIS from "./pages/WebGIS";
 import AuthModal from "./auth/AuthModal";
@@ -32,24 +32,37 @@ function AdminGuard({ children }) {
 }
 
 function AuthGate({ children }) {
-  const [authed, setAuthed] = useState(isTokenValid);
+  const [authed] = useState(isTokenValid);
   const [showModal, setShowModal] = useState(false);
+  const timerRef = useRef(null);
+
+  const scheduleModal = useCallback((delay) => {
+    clearTimeout(timerRef.current);
+    if (!isTokenValid()) {
+      timerRef.current = setTimeout(() => setShowModal(true), delay);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!authed) {
-      const t = setTimeout(() => setShowModal(true), 2000);
-      return () => clearTimeout(t);
-    }
-  }, [authed]);
+    if (!authed) scheduleModal(2000);
+    return () => clearTimeout(timerRef.current);
+  }, [authed, scheduleModal]);
 
-  const handleSuccess = () => {
-    window.location.reload();
-  };
+  useEffect(() => {
+    const onTourStart = () => { clearTimeout(timerRef.current); setShowModal(false); };
+    const onTourEnd = () => scheduleModal(600);
+    window.addEventListener("tour:start", onTourStart);
+    window.addEventListener("tour:end", onTourEnd);
+    return () => {
+      window.removeEventListener("tour:start", onTourStart);
+      window.removeEventListener("tour:end", onTourEnd);
+    };
+  }, [scheduleModal]);
 
   return (
     <>
       {children}
-      {showModal && !authed && <AuthModal onSuccess={handleSuccess} />}
+      {showModal && !authed && <AuthModal onSuccess={() => window.location.reload()} />}
     </>
   );
 }
