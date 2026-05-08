@@ -652,7 +652,6 @@ export default function WebGIS() {
       setActiveSidebarView("camadas");
       setIntroTourStep(0);
       setIntroTourOpen(true);
-      window.dispatchEvent(new Event("tour:start"));
     }, 700);
 
     return () => window.clearTimeout(timer);
