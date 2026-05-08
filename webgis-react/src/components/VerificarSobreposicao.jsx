@@ -1,5 +1,6 @@
 import React from "react";
 import * as turf from "@turf/turf";
+import { logEvento } from "../utils/logEvento";
 import gerarRelatorioPDF from "./gerarRelatorioPDF";
 import { useMap } from "react-leaflet";
 import { filtrarFeatureCollection } from "../utils/filtrarFeatureCollection";
@@ -510,6 +511,7 @@ export default function VerificarSobreposicao({
   const iconStyle = { width: "22px", height: "22px" };
 
   const verificar = async () => {
+    logEvento("verificar_sobreposicao", "executar");
     if (!carLayerBusca || !carLayerBusca.toGeoJSON) {
       alert("Nenhuma geometria do CAR foi carregada. Use o botao 'Buscar CAR'.");
       return;

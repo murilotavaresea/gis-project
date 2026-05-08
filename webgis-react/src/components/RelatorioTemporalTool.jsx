@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
+import { logEvento } from "../utils/logEvento";
 import * as turf from "@turf/turf";
 import L from "leaflet";
 import formatarNomeCamada from "../utils/formatarNomeCamada";
@@ -242,6 +243,7 @@ export default function RelatorioTemporalTool({
   };
 
   const gerarRelatorio = async () => {
+    logEvento("relatorio_temporal", "gerar");
     if (!carLayerBusca?.toGeoJSON) {
       alert("Busque um CAR antes de gerar o relatorio temporal.");
       return;

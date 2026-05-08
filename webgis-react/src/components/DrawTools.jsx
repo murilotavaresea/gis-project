@@ -520,7 +520,7 @@ export default function DrawTools({
           <img src="/icons/file-input.svg" alt="Importar" style={toolIconStyle} />
         </button>
 
-        <button id="tour-tool-import-car" onClick={() => fileInputRefCAR.current.click()} title="Importar CAR" type="button">
+        <button id="tour-tool-import-car" onClick={() => { logEvento("importar_car", "abrir"); fileInputRefCAR.current.click(); }} title="Importar CAR" type="button">
           <img src="/icons/novo-car.png" alt="Importar CAR" style={toolIconStyle} />
         </button>
 

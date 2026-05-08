@@ -2,6 +2,7 @@
 import L from "leaflet";
 import * as turf from "@turf/turf";
 import config from "../config";
+import { logEvento } from "../utils/logEvento";
 import { filtrarCoberturaSoloParaRemanescente } from "../utils/coberturaSoloCAR";
 import {
   agruparCamadasImportadasPorCAR,
@@ -295,6 +296,7 @@ export default function GerarAreaBeneficiavel({
   }, [grupoSelecionadoId, gruposCAR]);
 
   const executarGeracao = async (grupo) => {
+    logEvento("area_beneficiavel", "gerar");
     if (!map || !drawnItemsRef.current) {
       console.warn("Referencias do mapa ou itens desenhados nao estao disponiveis.");
       return;

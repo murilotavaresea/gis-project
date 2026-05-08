@@ -751,6 +751,7 @@ export default function WebGIS() {
     }
 
     const proximoVisivel = !camadaAtual.visivel;
+    logEvento("camada", proximoVisivel ? `ativar:${nome}` : `desativar:${nome}`);
 
     if (!proximoVisivel) {
       atualizarCarregamentoCamada(nome, false);
