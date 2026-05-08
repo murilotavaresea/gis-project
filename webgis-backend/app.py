@@ -33,7 +33,9 @@ from werkzeug.security import generate_password_hash
 from config.camadas_externas import camadas_externas
 from db import get_db_connection
 from importer import importar_shapefiles
+from routes.admin import admin_bp
 from routes.auth import auth_bp
+from routes.eventos import eventos_bp
 from routes.diferenca import diferenca_bp
 from routes.ibama import ibama_bp
 from routes.importar_car import importar_car_bp
@@ -67,6 +69,8 @@ CORS(
     },
 )
 
+app.register_blueprint(admin_bp)
+app.register_blueprint(eventos_bp)
 app.register_blueprint(diferenca_bp)
 app.register_blueprint(importar_car_bp)
 app.register_blueprint(ibama_bp)
@@ -92,6 +96,25 @@ def init_db():
             )
             cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token VARCHAR(255)")
             cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ")
+            cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'")
+            cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()")
+            cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ")
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS logs_atividade (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+                    ferramenta VARCHAR(100),
+                    acao VARCHAR(100),
+                    sucesso BOOLEAN DEFAULT TRUE,
+                    erro TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+                """
+            )
+            admin_email = os.getenv("ADMIN_EMAIL", "")
+            if admin_email:
+                cur.execute("UPDATE usuarios SET role = 'admin' WHERE email = %s", (admin_email,))
             conn.commit()
         print("Tabela 'usuarios' verificada/criada.")
     except Exception as error:

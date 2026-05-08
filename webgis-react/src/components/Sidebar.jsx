@@ -12,6 +12,7 @@ export default function Sidebar({
   onChangeSection,
   onStartTour,
   onLogout,
+  onAdmin,
   children,
 }) {
   return (
@@ -49,6 +50,19 @@ export default function Sidebar({
                 </button>
               ))}
             </div>
+            {onAdmin && (
+              <div className="sb-railBottom">
+                <button
+                  className="sb-railBtn"
+                  type="button"
+                  onClick={onAdmin}
+                  title="Painel administrativo"
+                  aria-label="Painel administrativo"
+                >
+                  <span>⚙</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="sb-main">

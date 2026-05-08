@@ -3,17 +3,32 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import WebGIS from "./pages/WebGIS";
 import AuthModal from "./auth/AuthModal";
 import RedefinirSenha from "./pages/RedefinirSenha";
+import AdminDashboard from "./pages/AdminDashboard";
 
-function isTokenValid() {
+function decodeToken() {
   const token = localStorage.getItem("token");
-  if (!token) return false;
+  if (!token) return null;
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.exp * 1000 > Date.now();
+    if (payload.exp * 1000 <= Date.now()) {
+      localStorage.removeItem("token");
+      return null;
+    }
+    return payload;
   } catch {
     localStorage.removeItem("token");
-    return false;
+    return null;
   }
+}
+
+function isTokenValid() {
+  return decodeToken() !== null;
+}
+
+function AdminGuard({ children }) {
+  const payload = decodeToken();
+  if (!payload || payload.role !== "admin") return <Navigate to="/webgis" />;
+  return children;
 }
 
 function AuthGate({ children }) {
@@ -28,8 +43,7 @@ function AuthGate({ children }) {
   }, [authed]);
 
   const handleSuccess = () => {
-    setAuthed(true);
-    setShowModal(false);
+    window.location.reload();
   };
 
   return (
@@ -47,6 +61,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/webgis" />} />
         <Route path="/webgis" element={<AuthGate><WebGIS /></AuthGate>} />
         <Route path="/redefinir-senha" element={<RedefinirSenha />} />
+        <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
         <Route path="*" element={<Navigate to="/webgis" />} />
       </Routes>
     </Router>

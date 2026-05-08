@@ -25,15 +25,31 @@ def login():
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
-            cur.execute("SELECT id, senha_hash FROM usuarios WHERE email = %s", (email,))
+            cur.execute("SELECT id, senha_hash, COALESCE(role, 'user') AS role FROM usuarios WHERE email = %s", (email,))
             usuario = cur.fetchone()
 
         if not usuario or not check_password_hash(usuario["senha_hash"], senha):
             return jsonify({"erro": "Credenciais invalidas"}), 401
 
+        role = usuario["role"]
+        admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
+        if admin_email and email.strip().lower() == admin_email:
+            role = "admin"
+            with conn.cursor() as cur:
+                cur.execute("UPDATE usuarios SET role = 'admin' WHERE id = %s AND role != 'admin'", (usuario["id"],))
+                conn.commit()
+
+        with conn.cursor() as cur2:
+            cur2.execute(
+                "UPDATE usuarios SET last_login = NOW() WHERE id = %s",
+                (usuario["id"],),
+            )
+            conn.commit()
+
         token = jwt.encode(
             {
                 "user_id": usuario["id"],
+                "role": role,
                 "exp": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=12),
             },
             JWT_SECRET,

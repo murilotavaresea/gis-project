@@ -10,6 +10,7 @@ import RelatorioTemporalTool from "./RelatorioTemporalTool";
 import VerificarSobreposicao from "./VerificarSobreposicao";
 import MapaRelatorio from "./MapaRelatorio";
 import { obterResumoDesenho } from "../utils/desenhoMetricas";
+import { logEvento } from "../utils/logEvento";
 
 function MeasurementPanel({
   tipo,
@@ -225,6 +226,7 @@ export default function DrawTools({
       return;
     }
 
+    logEvento("medicao", "abrir_menu");
     setShowDrawSubmenu(false);
     setShowMeasureSubmenu(true);
   };
@@ -232,8 +234,10 @@ export default function DrawTools({
   const startDraw = (tipo) => {
     if (!map || !drawnItemsRef.current || !drawnItemsRef.current._map) {
       console.warn("Mapa ou drawnItemsRef ainda nao estao prontos");
+      logEvento("desenho", tipo, false, "Mapa nao pronto");
       return;
     }
+    logEvento("desenho", tipo);
 
     const options = { shapeOptions: { color: "#6f89a5" } };
     let drawer;
@@ -283,6 +287,7 @@ export default function DrawTools({
   const startMeasurement = (tipo) => {
     if (!map) return;
 
+    logEvento("medicao", tipo);
     clearMeasurementLayers();
     detachMeasurementCreatedHandler();
     setTipoMedicao(tipo);
@@ -379,6 +384,7 @@ export default function DrawTools({
   };
 
   const exportarKML = () => {
+    logEvento("exportar_kml", "download");
     const features = [];
 
     drawnItemsRef.current.eachLayer((layer) => {
@@ -521,7 +527,7 @@ export default function DrawTools({
         <button
           id="tour-tool-buscar-car"
           className={mostrarBuscaCAR ? "is-active" : ""}
-          onClick={() => setMostrarBuscaCAR((prev) => !prev)}
+          onClick={() => { if (!mostrarBuscaCAR) logEvento("buscar_car", "abrir"); setMostrarBuscaCAR((prev) => !prev); }}
           title="Buscar CAR"
           type="button"
           aria-pressed={mostrarBuscaCAR}

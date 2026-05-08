@@ -1,6 +1,8 @@
 // src/pages/WebGIS.jsx
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { logEvento } from '../utils/logEvento';
 import '../App.css';
 
 import Sidebar from '../components/Sidebar';
@@ -227,6 +229,16 @@ function formatarNomeCAR(nome) {
 }
 
 export default function WebGIS() {
+  const navigate = useNavigate();
+
+  const isAdmin = (() => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return false;
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload.role === "admin";
+    } catch { return false; }
+  })();
 
   const drawnItemsRef = useRef(new L.FeatureGroup());
   const fileInputRef = useRef(null);
@@ -1016,10 +1028,12 @@ export default function WebGIS() {
         }
 
         adicionarCamadaAoMapa(geo, nomeCamada);
+        logEvento("importar_arquivo", ext);
 
       } catch (err) {
 
         console.error(err);
+        logEvento("importar_arquivo", ext, false, err.message);
 
       }
 
@@ -1098,6 +1112,7 @@ export default function WebGIS() {
         activeSection={activeSidebarView}
         onChangeSection={setActiveSidebarView}
         onStartTour={abrirIntroTour}
+        onAdmin={isAdmin ? () => navigate("/admin") : undefined}
         onLogout={() => { localStorage.removeItem("token"); window.location.reload(); }}
         title="LiroGis"
         subtitle="Analise territorial e inteligencia espacial"
