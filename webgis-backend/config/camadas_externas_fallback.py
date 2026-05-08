@@ -331,11 +331,29 @@ CAMADAS_EXTERNAS_FALLBACK = [
         "minZoom": 7,
         "sourceType": "wfs",
         "grupoExterno": "Fontes Externas",
+        "subgrupoExterno": "SEMA-MT",
         "wfsParams": {
             "authkey": "541085de-9a2e-454e-bdba-eb3d57a2f492",
         },
         "analysisWfsBaseUrl": "https://geo.sema.mt.gov.br/geoserver/wfs",
         "analysisTypeName": "Geoportal:MVW_APF_GEOMETRIA_REGULAR",
+        "analysisWfsParams": {
+            "authkey": "541085de-9a2e-454e-bdba-eb3d57a2f492",
+        },
+    },
+    {
+        "titulo": "Areas Embargadas SEMA-MT",
+        "typeName": "Geoportal:AREAS_EMBARGADAS_SEMA",
+        "wfs": "https://geo.sema.mt.gov.br/geoserver/wfs",
+        "minZoom": 7,
+        "sourceType": "wfs",
+        "grupoExterno": "Fontes Externas",
+        "subgrupoExterno": "SEMA-MT",
+        "wfsParams": {
+            "authkey": "541085de-9a2e-454e-bdba-eb3d57a2f492",
+        },
+        "analysisWfsBaseUrl": "https://geo.sema.mt.gov.br/geoserver/wfs",
+        "analysisTypeName": "Geoportal:AREAS_EMBARGADAS_SEMA",
         "analysisWfsParams": {
             "authkey": "541085de-9a2e-454e-bdba-eb3d57a2f492",
         },

@@ -290,6 +290,16 @@ export function getEstiloCamada(nome = "") {
     });
   }
 
+  if (nomeUpper.includes("EMBARGADA") && nomeUpper.includes("SEMA")) {
+    return criarEstilo({
+      color: "#9c27b0",
+      fillColor: "#ce93d8",
+      weight: 2,
+      fillOpacity: 0.22,
+      dashArray: "7 4",
+    });
+  }
+
   if (nomeUpper.includes("AUTO") && nomeUpper.includes("INFRACAO") && nomeUpper.includes("ICMBIO")) {
     return criarEstilo({
       color: "#d96b00",
