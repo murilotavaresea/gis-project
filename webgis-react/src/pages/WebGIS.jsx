@@ -29,6 +29,7 @@ import PainelFontesCamadas from '../components/PainelFontesCamadas';
 import PainelAjuda from '../components/PainelAjuda';
 import ProcessingOverlay from '../components/ProcessingOverlay';
 import IntroTour from '../components/IntroTour';
+import FeedbackModal from '../components/FeedbackModal';
 
 import { aplicarPadraoCamada, getEstiloCamada, getEstiloFeatureCamada } from '../utils/estiloCamadas';
 
@@ -271,6 +272,7 @@ export default function WebGIS() {
   });
   const [introTourOpen, setIntroTourOpen] = useState(false);
   const [introTourStep, setIntroTourStep] = useState(0);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const sidebarSections = [
     { id: "camadas", label: "Catalogo", icon: "/icons/layers.svg" },
     { id: "fontes", label: "Fontes", shortLabel: "i" },
@@ -1396,6 +1398,14 @@ export default function WebGIS() {
         onSkip={encerrarIntroTour}
         onFinish={encerrarIntroTour}
       />
+
+      {localStorage.getItem("token") && (
+        <button className="feedback-float-btn" onClick={() => setFeedbackOpen(true)}>
+          Reportar / Sugerir
+        </button>
+      )}
+
+      <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
     </div>
 

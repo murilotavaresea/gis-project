@@ -39,6 +39,7 @@ from routes.eventos import eventos_bp
 from routes.diferenca import diferenca_bp
 from routes.ibama import ibama_bp
 from routes.importar_car import importar_car_bp
+from routes.feedback import feedback_bp
 
 
 def _load_allowed_origins():
@@ -75,6 +76,7 @@ app.register_blueprint(diferenca_bp)
 app.register_blueprint(importar_car_bp)
 app.register_blueprint(ibama_bp)
 app.register_blueprint(auth_bp)
+app.register_blueprint(feedback_bp)
 
 
 def init_db():
@@ -108,6 +110,19 @@ def init_db():
                     acao VARCHAR(100),
                     sucesso BOOLEAN DEFAULT TRUE,
                     erro TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS feedbacks (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+                    tipo VARCHAR(50) NOT NULL DEFAULT 'sugestao',
+                    titulo VARCHAR(200) NOT NULL,
+                    descricao TEXT,
+                    ferramenta VARCHAR(100),
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
                 """

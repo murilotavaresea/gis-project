@@ -10,6 +10,12 @@ function buildXyzProxyUrl(url, proxyBaseUrl) {
     return url;
   }
 
+  // URLs with extension after {y} (e.g. {z}/{x}/{y}.png) — pass full template;
+  // the backend will substitute placeholders directly.
+  if (/\/\{z\}\/\{x\}\/\{y\}\.[a-zA-Z0-9]+/.test(url)) {
+    return `${proxyBaseUrl}/{z}/{x}/{y}?base=${encodeURIComponent(url)}`;
+  }
+
   const base = String(url).replace(/\/\{z\}\/\{x\}\/\{y\}\/?$/, "");
   return `${proxyBaseUrl}/{z}/{x}/{y}?base=${encodeURIComponent(base)}`;
 }
@@ -87,7 +93,7 @@ export default function ExternalXyzLayer({
       zIndex={zIndex}
       opacity={opacity}
       maxZoom={maxZoom}
-      crossOrigin
+      crossOrigin={useProxy ? "anonymous" : undefined}
       eventHandlers={{
         loading: () => {
           tileSuccessCountRef.current = 0;

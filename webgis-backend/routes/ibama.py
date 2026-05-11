@@ -747,7 +747,10 @@ def proxy_xyz_tile(z, x, y):
 
     params = request.args.to_dict()
     params.pop("base", None)
-    tile_url = f"{base}/{z}/{x}/{y}"
+    if "{z}" in base or "{x}" in base or "{y}" in base:
+        tile_url = base.replace("{z}", str(z)).replace("{x}", str(x)).replace("{y}", str(y))
+    else:
+        tile_url = f"{base}/{z}/{x}/{y}"
 
     try:
         return proxy_external_request(tile_url, params)

@@ -27,6 +27,10 @@ function buildXyzProxyUrl(url, proxyBaseUrl) {
     return url;
   }
 
+  if (/\/\{z\}\/\{x\}\/\{y\}\.[a-zA-Z0-9]+/.test(url)) {
+    return `${proxyBaseUrl}/{z}/{x}/{y}?base=${encodeURIComponent(url)}`;
+  }
+
   const base = String(url).replace(/\/\{z\}\/\{x\}\/\{y\}\/?$/, "");
   return `${proxyBaseUrl}/{z}/{x}/{y}?base=${encodeURIComponent(base)}`;
 }
