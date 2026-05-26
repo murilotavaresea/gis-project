@@ -10,3 +10,5 @@ PyJWT
 geoalchemy2
 resend
 werkzeug
+rasterio
+numpy

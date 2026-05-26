@@ -67,7 +67,7 @@ export default function PainelFontesCamadas({ camadas, onClose, variant = "float
             <div key={`${fonte.grupo}-${fonte.orgao}-${fonte.servico}-${fonte.url}`} className="painel-fontesCard">
               <div className="painel-fontesRow">
                 <strong>{fonte.orgao}</strong>
-                <span className="painel-fontesTag">{fonte.servico}</span>
+                <span className={`painel-fontesTag painel-fontesTag--${fonte.servico.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}>{fonte.servico}</span>
               </div>
               <div className="painel-fontesMeta">{fonte.quantidade} camadas vinculadas</div>
               <div className="painel-fontesUrl">{fonte.url}</div>

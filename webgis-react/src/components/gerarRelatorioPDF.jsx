@@ -148,6 +148,13 @@ function desenharLinhaResultado(doc, y, resultado, indice) {
   return alturaLinha + 2.5;
 }
 
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m
+    ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)]
+    : [128, 128, 128];
+}
+
 const colorCanvas =
   typeof document !== "undefined" ? document.createElement("canvas") : null;
 const colorContext = colorCanvas ? colorCanvas.getContext("2d") : null;
@@ -259,14 +266,271 @@ async function capturarMapa() {
     throw new Error("Elemento mapa-pdf nao encontrado");
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  return html2canvas(div, { useCORS: true, scale: 2 });
+  // html2canvas perde a sincronia entre tile layer e SVG quando o elemento está
+  // em top/left muito negativos (≥ 9999px). A solução é mover o div para (0,0)
+  // durante a captura e restaurar depois — o conteúdo do mapa não é afetado.
+  const saved = {
+    position: div.style.position,
+    top:      div.style.top,
+    left:     div.style.left,
+  };
+  div.style.position = "fixed";
+  div.style.top      = "0px";
+  div.style.left     = "0px";
+
+  await new Promise((resolve) => setTimeout(resolve, 250));
+
+  let canvas;
+  try {
+    canvas = await html2canvas(div, {
+      useCORS: true,
+      scale: 2,
+      scrollX: 0,
+      scrollY: 0,
+      logging: false,
+    });
+  } finally {
+    div.style.position = saved.position;
+    div.style.top      = saved.top;
+    div.style.left     = saved.left;
+  }
+
+  return canvas;
+}
+
+function desenharNorteSeta(doc, cx, cy) {
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(120, 138, 132);
+  doc.setLineWidth(0.4);
+  doc.circle(cx, cy, 5.5, "FD");
+
+  // Haste vertical
+  doc.setDrawColor(22, 33, 30);
+  doc.setLineWidth(0.55);
+  doc.line(cx, cy + 3.8, cx, cy - 1.5);
+
+  // Triângulo norte (escuro): ápice (cx, cy-4.5), base (cx±2, cy-1.5)
+  doc.setFillColor(22, 33, 30);
+  doc.lines([[2, 3], [-4, 0]], cx, cy - 4.5, [1, 1], "F", true);
+
+  // "N" branco dentro do triângulo
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(4);
+  doc.setTextColor(255, 255, 255);
+  doc.text("N", cx, cy - 2.6, { align: "center" });
+}
+
+function calcularEscala(bounds, larguraMM) {
+  if (!bounds) return null;
+  const latC = (bounds.north + bounds.south) / 2;
+  const lngExt = bounds.east - bounds.west;
+  const mPorGrau = 111320 * Math.cos(latC * Math.PI / 180);
+  const mapWidthM = lngExt * mPorGrau;
+  const mPorMM = mapWidthM / larguraMM;
+  const alvo = mPorMM * 28;
+  const mag = Math.pow(10, Math.floor(Math.log10(alvo)));
+  const opcoes = [1, 2, 5, 10].map((f) => f * mag);
+  const dist = opcoes.find((v) => v >= alvo / 2) ?? opcoes[opcoes.length - 1];
+  return { distanciaMetros: dist, larguraMM: dist / mPorMM };
+}
+
+function desenharEscala(doc, x, y, larguraMM, distanciaMetros) {
+  const label = distanciaMetros >= 1000
+    ? `${distanciaMetros / 1000} km`
+    : `${distanciaMetros} m`;
+
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(120, 138, 132);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(x - 2, y - 5.5, larguraMM + 4, 8.5, 1.5, 1.5, "FD");
+
+  doc.setDrawColor(22, 33, 30);
+  doc.setLineWidth(0.6);
+  doc.line(x, y, x + larguraMM, y);
+  doc.line(x, y - 1.8, x, y + 1.8);
+  doc.line(x + larguraMM, y - 1.8, x + larguraMM, y + 1.8);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(5);
+  doc.setTextColor(22, 33, 30);
+  doc.text("0", x, y - 3, { align: "center" });
+  doc.text(label, x + larguraMM, y - 3, { align: "center" });
+}
+
+const SWATCH_W   = 5;
+const SWATCH_GAP = 3;
+const NAME_X     = MARGIN_X + SWATCH_W + SWATCH_GAP;
+const BAR_MAX_W  = CONTENT_WIDTH - SWATCH_W - SWATCH_GAP - 2;
+const ROW_H      = 11;
+
+function desenharSecaoMapBiomas(doc, dadosMapBiomas, codigoCAR, imagemMapBiomas = null) {
+  if (!dadosMapBiomas || !dadosMapBiomas.lulc) return;
+
+  const meta = dadosMapBiomas.meta || {};
+  const lulc = dadosMapBiomas.lulc;
+  const anos = Object.keys(lulc).sort((a, b) => parseInt(b) - parseInt(a));
+
+  for (const ano of anos) {
+    const dadosAno = lulc[ano];
+    if (!dadosAno || dadosAno.erro || dadosAno.aviso) continue;
+
+    const maxClasses = imagemMapBiomas ? 10 : 18;
+    const classes = Object.entries(dadosAno)
+      .filter(([, v]) => typeof v.ha === "number" && v.ha > 0)
+      .sort((a, b) => b[1].ha - a[1].ha)
+      .slice(0, maxClasses);
+
+    if (classes.length === 0) continue;
+
+    doc.addPage();
+    desenharCabecalho(doc, `CAR ${normalizarTexto(codigoCAR)}`);
+
+    let y = 38;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(16, 35, 38);
+    doc.text("Cobertura e Uso do Solo", MARGIN_X, y);
+
+    y += 6;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(89, 103, 99);
+    doc.text(
+      normalizarTexto(
+        `MapBiomas Brasil — Colecao 10.1  |  Ano: ${ano}  |  Resolucao: 30 m`
+      ),
+      MARGIN_X,
+      y
+    );
+
+    y += 5;
+    if (meta.area_total_ha) {
+      doc.text(
+        `Area do imovel: ${meta.area_total_ha} ha`,
+        MARGIN_X,
+        y
+      );
+      y += 5;
+    }
+
+    y += 5;
+
+    // Imagem do mapa de cobertura (gerada pelo backend via rasterio COG)
+    if (imagemMapBiomas?.png_base64 && !imagemMapBiomas.erro) {
+      const aspecto = imagemMapBiomas.altura_px / imagemMapBiomas.largura_px;
+      const imgW = CONTENT_WIDTH;
+      const imgH = Math.min(imgW * aspecto, 75);
+
+      doc.setFillColor(245, 248, 246);
+      doc.setDrawColor(210, 225, 218);
+      doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, imgH + 4, 3, 3, "FD");
+
+      doc.addImage(
+        `data:image/png;base64,${imagemMapBiomas.png_base64}`,
+        "PNG",
+        MARGIN_X + 2,
+        y + 2,
+        imgW - 4,
+        imgH
+      );
+      y += imgH + 12;
+    }
+
+    const maxHa = classes[0][1].ha || 1;
+    const totalAnalisado = classes.reduce((s, [, v]) => s + v.ha, 0);
+
+    classes.forEach(([nome, info]) => {
+      if (y + ROW_H > 278) return;
+
+      const rgb = hexToRgb(info.cor || "#aaaaaa");
+
+      // Swatch
+      doc.setFillColor(...rgb);
+      doc.roundedRect(MARGIN_X, y - 3.8, SWATCH_W, SWATCH_W, 0.8, 0.8, "F");
+
+      // Nome da classe
+      const nomeNorm = normalizarTexto(nome);
+      const nomeLinhas = doc.splitTextToSize(nomeNorm, 110);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(24, 42, 45);
+      doc.text(nomeLinhas[0], NAME_X, y);
+
+      // Valor ha (direita)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(16, 35, 38);
+      doc.text(
+        `${info.ha.toFixed(1)} ha`,
+        PAGE_WIDTH - MARGIN_X - 22,
+        y,
+        { align: "right" }
+      );
+
+      // Percentual (extrema direita)
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(89, 103, 99);
+      doc.text(
+        `${info.pct.toFixed(1)}%`,
+        PAGE_WIDTH - MARGIN_X,
+        y,
+        { align: "right" }
+      );
+
+      // Trilho da barra
+      const barY = y + 2;
+      doc.setFillColor(230, 236, 233);
+      doc.roundedRect(NAME_X, barY, BAR_MAX_W, 2.8, 1.4, 1.4, "F");
+
+      // Preenchimento proporcional
+      const fillW = Math.max(1, (info.ha / maxHa) * BAR_MAX_W);
+      doc.setFillColor(...rgb);
+      doc.roundedRect(NAME_X, barY, fillW, 2.8, 1.4, 1.4, "F");
+
+      y += ROW_H;
+    });
+
+    // Total analisado
+    y += 4;
+    doc.setFillColor(240, 245, 242);
+    doc.setDrawColor(210, 225, 218);
+    doc.roundedRect(MARGIN_X, y, CONTENT_WIDTH, 9, 2.5, 2.5, "FD");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(50, 70, 64);
+    doc.text(
+      `Total analisado: ${totalAnalisado.toFixed(1)} ha`,
+      MARGIN_X + 4,
+      y + 5.8
+    );
+
+    // Nota metodológica
+    y += 17;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.8);
+    doc.setTextColor(120, 135, 130);
+    const nota = doc.splitTextToSize(
+      normalizarTexto(
+        `Dados extraidos da Colecao 10.1 do MapBiomas Brasil via HTTP Range Request sobre ` +
+        `Cloud-Optimized GeoTIFFs publicos. Resolucao espacial: 30 m (Landsat). ` +
+        `Licenca: CC-BY 4.0. Citar: MapBiomas Project, ${ano}.`
+      ),
+      CONTENT_WIDTH
+    );
+    doc.text(nota, MARGIN_X, y);
+  }
 }
 
 export default async function gerarRelatorioPDF({
   codigoCAR,
   resultados,
   overlayLayers = [],
+  dadosMapBiomas = null,
+  imagemMapBiomas = null,
+  mapBounds = null,
+  map = null,
 }) {
   const doc = new jsPDF();
   const dataHoje = new Date().toLocaleDateString("pt-BR");
@@ -405,10 +669,30 @@ export default async function gerarRelatorioPDF({
   doc.setDrawColor(220, 229, 225);
   doc.roundedRect(MARGIN_X, 52, CONTENT_WIDTH, 130, 6, 6, "FD");
 
+  const MAP_IMG_X = MARGIN_X + 4;
+  const MAP_IMG_Y = 56;
+  const MAP_IMG_W = CONTENT_WIDTH - 8;
+  const MAP_IMG_H = 122;
+
   try {
     const canvas = await capturarMapa();
     const imgData = canvas.toDataURL("image/png");
-    doc.addImage(imgData, "PNG", MARGIN_X + 4, 56, CONTENT_WIDTH - 8, 122);
+    doc.addImage(imgData, "PNG", MAP_IMG_X, MAP_IMG_Y, MAP_IMG_W, MAP_IMG_H);
+
+    // Rosa dos ventos (canto superior direito)
+    desenharNorteSeta(doc, MAP_IMG_X + MAP_IMG_W - 9, MAP_IMG_Y + 10);
+
+    // Barra de escala (canto inferior esquerdo)
+    const escala = calcularEscala(mapBounds, MAP_IMG_W);
+    if (escala) {
+      desenharEscala(
+        doc,
+        MAP_IMG_X + 8,
+        MAP_IMG_Y + MAP_IMG_H - 6,
+        escala.larguraMM,
+        escala.distanciaMetros
+      );
+    }
   } catch (error) {
     console.error("Erro ao capturar o mapa:", error);
     doc.setFont("helvetica", "bold");
@@ -432,6 +716,8 @@ export default async function gerarRelatorioPDF({
     CONTENT_WIDTH
   );
   doc.text(observacoes, MARGIN_X, observacoesY + 7);
+
+  desenharSecaoMapBiomas(doc, dadosMapBiomas, codigoCAR, imagemMapBiomas);
 
   const totalPages = doc.internal.getNumberOfPages();
   for (let pagina = 1; pagina <= totalPages; pagina += 1) {

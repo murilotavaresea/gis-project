@@ -2031,34 +2031,59 @@
 
 .painel-fontesCard {
   margin-bottom: 8px;
-  padding: 11px 12px;
-  border: 1px solid var(--color-border-soft);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.74);
-  box-shadow: 0 8px 18px rgba(86, 78, 84, 0.06);
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 170, 162, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 2px 8px rgba(86, 78, 84, 0.06);
 }
 
 .painel-fontesRow {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 8px;
 }
 
 .painel-fontesRow strong {
+  flex: 1 0 130px;
   font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: break-word;
 }
 
 .painel-fontesTag {
   flex-shrink: 0;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(136, 195, 181, 0.18);
-  color: #54776d;
+  margin-top: 1px;
+  margin-left: auto;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(216, 144, 47, 0.12);
+  color: var(--accent-primary-strong);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.painel-fontesTag--wms {
+  background: rgba(91, 155, 175, 0.14);
+  color: #2e6e85;
+}
+
+.painel-fontesTag--wfs {
+  background: rgba(109, 170, 130, 0.15);
+  color: #2f6b4a;
+}
+
+.painel-fontesTag--xyz-tiles {
+  background: rgba(216, 144, 47, 0.13);
+  color: var(--accent-primary-strong);
+}
+
+.painel-fontesTag--arcgis-feature-service {
+  background: rgba(120, 100, 180, 0.12);
+  color: #5a3fa0;
 }
 
 .painel-fontesMeta {
@@ -2068,11 +2093,12 @@
 }
 
 .painel-fontesUrl {
-  margin-top: 7px;
-  color: rgba(78, 69, 75, 0.72);
+  margin-top: 6px;
+  color: rgba(78, 69, 75, 0.55);
   font-size: 10px;
-  line-height: 1.45;
-  word-break: break-word;
+  line-height: 1.4;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 
 .painel-fontesNota {
@@ -2094,12 +2120,17 @@
 }
 
 .painel-fontesLayerTag {
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: rgba(208, 220, 203, 0.38);
-  color: rgba(78, 69, 75, 0.74);
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(208, 220, 203, 0.4);
+  border: 1px solid rgba(150, 175, 155, 0.25);
+  color: rgba(78, 69, 75, 0.78);
   font-size: 10px;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .painel-medicao strong {
@@ -3427,4 +3458,360 @@ footer {
   font-size: 13px;
   color: var(--text-muted);
   line-height: 1.55;
+}
+
+/* ─── MapBiomas Panel ──────────────────────────────────────────────────────── */
+
+.mb-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 0 16px;
+  font-size: 13px;
+  color: var(--text-strong);
+}
+
+.mb-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mb-panel-badge {
+  background: #1f8d49;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.mb-panel-versao {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mb-panel-aviso {
+  background: var(--accent-secondary);
+  border-left: 3px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Seções ── */
+.mb-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mb-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ── Modos de período ── */
+.mb-modo-btns {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.mb-modo-btn {
+  background: transparent;
+  border: 1px solid var(--surface-line-dark);
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 2px 7px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background .12s, color .12s;
+}
+
+.mb-modo-btn:hover { background: var(--accent-secondary); }
+.mb-modo-btn.active {
+  background: var(--accent-primary);
+  color: #fff;
+  border-color: var(--accent-primary);
+}
+
+/* ── Grade de anos ── */
+.mb-anos-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.mb-ano-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mb-ano-label input[type="checkbox"] { cursor: pointer; }
+
+.mb-custom-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Coleções ── */
+.mb-colecoes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mb-colecao-label {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 1px;
+  align-items: start;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: background .1s, border-color .1s;
+}
+
+.mb-colecao-label:hover { background: var(--accent-secondary-soft); }
+.mb-colecao-label.disabled { opacity: .5; cursor: not-allowed; }
+
+.mb-colecao-label input[type="checkbox"] {
+  grid-row: 1 / 3;
+  grid-column: 1;
+  align-self: center;
+  cursor: pointer;
+}
+
+.mb-colecao-nome {
+  font-weight: 600;
+  font-size: 12px;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.mb-colecao-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  grid-column: 2;
+  grid-row: 2;
+  line-height: 1.4;
+}
+
+.mb-colecao-aviso {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: 12px;
+  color: #b97723;
+  cursor: help;
+}
+
+/* ── Botão analisar ── */
+.mb-btn-analisar {
+  width: 100%;
+  padding: 9px 0;
+  background: #1f8d49;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background .15s, opacity .15s;
+}
+
+.mb-btn-analisar:hover:not(:disabled) { background: #177a3e; }
+.mb-btn-analisar:disabled { opacity: .45; cursor: not-allowed; }
+
+.mb-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: mb-spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mb-spin { to { transform: rotate(360deg); } }
+
+/* ── Erro ── */
+.mb-panel-erro {
+  background: #fff1f0;
+  border: 1px solid #ffa39e;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #cf1322;
+  line-height: 1.5;
+}
+
+/* ── Resultados ── */
+.mb-resultados {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mb-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 6px 0 2px;
+  line-height: 1.5;
+}
+
+.mb-meta strong { color: var(--text-strong); }
+
+/* ── Créditos ── */
+.mb-panel-creditos {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  padding-top: 4px;
+  border-top: 1px solid var(--surface-line-dark);
+  line-height: 1.5;
+}
+
+/* ─── MapBiomas Chart ─────────────────────────────────────────────────────── */
+
+.mb-chart {
+  border: 1px solid var(--surface-line-dark);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-light-strong);
+}
+
+.mb-chart-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-strong);
+}
+
+.mb-chart-toggle:hover { background: var(--accent-secondary-soft); }
+
+.mb-chart-titulo {
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  flex: 1;
+}
+
+.mb-chart-total {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mb-chart-arrow {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.mb-chart-body {
+  padding: 6px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.mb-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mb-bar-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.mb-bar-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,.08);
+}
+
+.mb-bar-nome {
+  flex: 1;
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mb-bar-valores {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  display: flex;
+  gap: 5px;
+}
+
+.mb-bar-valores em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.mb-bar-track {
+  height: 5px;
+  background: var(--surface-line-dark);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mb-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .35s ease;
+}
+
+.mb-chart-footer {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding-top: 4px;
+  border-top: 1px solid var(--surface-line-dark);
+  line-height: 1.5;
+}
+
+.mb-chart-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
 }

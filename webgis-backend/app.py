@@ -40,6 +40,7 @@ from routes.diferenca import diferenca_bp
 from routes.ibama import ibama_bp
 from routes.importar_car import importar_car_bp
 from routes.feedback import feedback_bp
+from blueprints.mapbiomas_bp import mapbiomas_bp
 
 
 def _load_allowed_origins():
@@ -77,6 +78,7 @@ app.register_blueprint(importar_car_bp)
 app.register_blueprint(ibama_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(feedback_bp)
+app.register_blueprint(mapbiomas_bp, url_prefix="/mapbiomas")
 
 
 def init_db():

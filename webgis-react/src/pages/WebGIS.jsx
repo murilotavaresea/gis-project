@@ -27,6 +27,7 @@ import ImportadorCAR from '../components/ImportadorCAR';
 import PainelCamadas from '../components/PainelCamadas';
 import PainelFontesCamadas from '../components/PainelFontesCamadas';
 import PainelAjuda from '../components/PainelAjuda';
+import MapBiomasPanel from '../components/MapBiomasPanel';
 import ProcessingOverlay from '../components/ProcessingOverlay';
 import IntroTour from '../components/IntroTour';
 import FeedbackModal from '../components/FeedbackModal';
@@ -274,14 +275,16 @@ export default function WebGIS() {
   const [introTourStep, setIntroTourStep] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const sidebarSections = [
-    { id: "camadas", label: "Catalogo", icon: "/icons/layers.svg" },
-    { id: "fontes", label: "Fontes", shortLabel: "i" },
-    { id: "ajuda", label: "Ajuda", shortLabel: "?" },
+    { id: "camadas",    label: "Catalogo",   icon: "/icons/layers.svg" },
+    { id: "mapbiomas",  label: "MapBiomas",  shortLabel: "MB" },
+    { id: "fontes",     label: "Fontes",     shortLabel: "i" },
+    { id: "ajuda",      label: "Ajuda",      shortLabel: "?" },
   ];
   const sidebarFrameTitle = {
-    camadas: "Catalogo operacional",
-    fontes: "Fontes das camadas",
-    ajuda: "Ajuda da plataforma",
+    camadas:   "Catalogo operacional",
+    mapbiomas: "MapBiomas — Cobertura do solo",
+    fontes:    "Fontes das camadas",
+    ajuda:     "Ajuda da plataforma",
   };
   const introTourSteps = useMemo(() => [
     {
@@ -1150,6 +1153,12 @@ export default function WebGIS() {
             indiceEditando={indiceEditando}
             camadasCarregando={camadasCarregando}
             camadasErros={camadasErros}
+          />
+        )}
+
+        {activeSidebarView === "mapbiomas" && (
+          <MapBiomasPanel
+            geometriaImovel={areaDoImovelLayer || carLayerBusca}
           />
         )}
 

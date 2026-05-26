@@ -6,7 +6,9 @@ import { useMap } from "react-leaflet";
 import { filtrarFeatureCollection } from "../utils/filtrarFeatureCollection";
 import config from "../config";
 
-const PROXY_WFS_BASE = config.PROXY_WFS_BASE_URL;
+const PROXY_WFS_BASE      = config.PROXY_WFS_BASE_URL;
+const MAPBIOMAS_API_URL   = `${config.API_BASE_URL}/mapbiomas/analise`;
+const MAPBIOMAS_MAPA_URL  = `${config.API_BASE_URL}/mapbiomas/mapa`;
 const MIN_INTERSECTION_AREA_M2 = 1;
 const LISTAS_PRODES_MMA = [
   {
@@ -639,8 +641,54 @@ export default function VerificarSobreposicao({
 
       showProcessingOverlay?.({
         title: "Gerando relatorio",
+        message: "Consultando cobertura do solo (MapBiomas)...",
+      });
+
+      let dadosMapBiomas = null;
+      try {
+        const mbResp = await fetch(MAPBIOMAS_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            geometria: areaFeature,
+            anos: [2024],
+            colecoes: ["lulc"],
+          }),
+        });
+        if (mbResp.ok) {
+          dadosMapBiomas = await mbResp.json();
+        }
+      } catch (mbErr) {
+        console.warn("[MapBiomas] Seção omitida do PDF:", mbErr?.message ?? mbErr);
+      }
+
+      let imagemMapBiomas = null;
+      try {
+        const mapaResp = await fetch(MAPBIOMAS_MAPA_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ geometria: areaFeature, ano: 2024, colecao: "lulc" }),
+        });
+        if (mapaResp.ok) {
+          imagemMapBiomas = await mapaResp.json();
+        }
+      } catch (mapaErr) {
+        console.warn("[MapBiomas] Imagem omitida do PDF:", mapaErr?.message ?? mapaErr);
+      }
+
+      showProcessingOverlay?.({
+        title: "Gerando relatorio",
         message: "Montando o PDF final com o mapa e os resultados encontrados.",
       });
+
+      const mapBounds = (() => {
+        try {
+          const b = map.getBounds();
+          return { north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() };
+        } catch {
+          return null;
+        }
+      })();
 
       await gerarRelatorioPDF({
         codigoCAR: areaFeature.properties?.cod_imovel || "sem_codigo",
@@ -648,6 +696,9 @@ export default function VerificarSobreposicao({
         overlayLayers: camadasSobrepostasMapa,
         map,
         areaGeoJSON: areaFeature,
+        dadosMapBiomas,
+        imagemMapBiomas,
+        mapBounds,
       });
     } finally {
       onLimparMapaRelatorio?.();

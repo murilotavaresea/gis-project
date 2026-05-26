@@ -187,6 +187,11 @@ export default function MapaRelatorio({
       minZoom: 1,
       maxZoom: 19,
       inertia: false,
+      // Canvas renderer: posiciona o container em coordenadas de layer (~0px)
+      // em vez de coordenadas CRS (~-800000px do SVG renderer).
+      // Isso elimina o deslocamento tile vs. vetor no html2canvas.
+      preferCanvas: true,
+      renderer: L.canvas({ padding: 0.1 }),
     });
 
     const tileLayer = L.tileLayer(
