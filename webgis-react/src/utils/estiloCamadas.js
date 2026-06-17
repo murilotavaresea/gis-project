@@ -407,7 +407,9 @@ export function getEstiloFeatureCamada(nome = "", feature = null) {
   const nomeUpper = String(nome).toUpperCase();
 
   if (nomeUpper.includes("ZSEE")) {
-    const estiloZsee = criarEstiloZseeRondonia(feature?.properties?.SUBZONA);
+    const estiloZsee = criarEstiloZseeRondonia(
+      feature?.properties?.SUBZONA ?? feature?.properties?.subzona
+    );
 
     if (estiloZsee) {
       return estiloZsee;

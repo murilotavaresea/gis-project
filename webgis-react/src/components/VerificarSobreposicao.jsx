@@ -321,6 +321,10 @@ function montarUrlConsulta(camada, bbox) {
     return `${PROXY_WFS_BASE}?base=${encodeURIComponent(camada.arcgisQueryUrl)}&${extras}`;
   }
 
+  if (camada.externa && camada.sourceType === "geojson-static") {
+    return camada.geojsonPath ? `${config.API_BASE_URL}${camada.geojsonPath}` : null;
+  }
+
   if (camada.externa && camada.sourceType === "wms") {
     return null;
   }
@@ -489,7 +493,9 @@ function obterDetalhesSobreposicao(camada, featuresSobrepostas = []) {
   const subzonas = [
     ...new Set(
       featuresSobrepostas
-        .map((feature) => normalizarSubzonaZsee(feature?.properties?.SUBZONA))
+        .map((feature) => normalizarSubzonaZsee(
+          feature?.properties?.SUBZONA ?? feature?.properties?.subzona
+        ))
         .filter(Boolean)
     ),
   ].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));

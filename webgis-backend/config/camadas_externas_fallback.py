@@ -311,7 +311,9 @@ CAMADAS_EXTERNAS_FALLBACK = [
     {
         "titulo": "Sitios Arqueologicos (IPHAN)",
         "typeName": "SICG:sitios",
-        "wfs": "https://portal.iphan.gov.br/geoserver/SICG/ows",
+        "wfs": "https://geoserver.iphan.gov.br/geoserver/SICG/ows",
+        "wfsVersion": "1.0.0",
+        "useProxy": "always",
         "minZoom": 7,
         "sourceType": "wfs",
         "grupoExterno": "Fontes Externas",

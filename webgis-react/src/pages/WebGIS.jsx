@@ -44,6 +44,7 @@ import ExternalXyzLayer from "../components/ExternalXyzLayer";
 import WmsFeatureInfoOverlay from "../components/WmsFeatureInfoOverlay";
 import ArcgisFeatureLayer from "../components/ArcgisFeatureLayer";
 import MapbiomasAlertLayer from "../components/MapbiomasAlertLayer";
+import StaticGeoJsonLayer from "../components/StaticGeoJsonLayer";
 import camadasExternasFallback from "../config/camadasExternasFallback";
 import config from "../config";
 import exportarLayerComoKml from "../utils/exportarLayerComoKml";
@@ -415,7 +416,8 @@ export default function WebGIS() {
     mapbiomasSources: c.mapbiomasSources ?? ["All"],
     mapbiomasPageSize: c.mapbiomasPageSize ?? 100,
     mapbiomasMaxPages: c.mapbiomasMaxPages ?? 3,
-    minZoom: c.minZoom ?? 7
+    minZoom: c.minZoom ?? 7,
+    geojsonPath: c.geojsonPath ?? null,
   }));
 
   const nomesCamadasVisiveisOrdenadas = useMemo(() => {
@@ -1292,6 +1294,25 @@ export default function WebGIS() {
                 sources={c.mapbiomasSources}
                 pageSize={c.mapbiomasPageSize}
                 maxPages={c.mapbiomasMaxPages}
+                onEachFeature={criarHandleEachFeature(nomeReferencia)}
+                style={criarStyleCamada(nomeReferencia)}
+                onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
+                onDataChange={(data) => atualizarFeatureCollectionExterna(c.nome, data)}
+              />
+            );
+          }
+
+          if (c.externa && c.sourceType === "geojson-static") {
+            const nomeReferencia = obterNomeReferenciaCamada(c);
+
+            return (
+              <StaticGeoJsonLayer
+                key={c.nome}
+                url={`${config.API_BASE_URL}${c.geojsonPath}`}
+                paneKey={c.nome}
+                visivel={c.visivel}
+                minZoom={c.minZoom}
+                zIndex={zIndexPorCamada[c.nome]}
                 onEachFeature={criarHandleEachFeature(nomeReferencia)}
                 style={criarStyleCamada(nomeReferencia)}
                 onLoadingChange={(carregando) => atualizarCarregamentoCamada(c.nome, carregando)}
