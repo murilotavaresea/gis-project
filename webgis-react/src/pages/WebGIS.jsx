@@ -163,6 +163,7 @@ function isCatalogLayerBlocked(camada = {}) {
     id === "eox-s2cloudless-2017" ||
     id.startsWith("zsee-rondonia-subzona-") ||
     typeName === "s2cloudless-2017_3857" ||
+    typeName === "publica:vw_brasil_adm_embargo_a" ||
     titulo === "sentinel-2 2017" ||
     (
       typeName === "cogeo:zsee_2aprox_2005_312_sirgas2000_4674" &&

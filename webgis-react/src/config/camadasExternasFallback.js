@@ -98,11 +98,8 @@ const INPE_PRODES_MOSAIC_TIMES = [
 ];
 
 const PRODES_BIOMAS_LAYERS = [
-  ["Amazonia", "prodes-amazon-nb:yearly_deforestation_biome"],
+  ["Amazonia", "prodes-legal-amz:yearly_deforestation"],
   ["Cerrado", "prodes-cerrado-nb:yearly_deforestation"],
-  ["Mata Atlantica", "prodes-mata-atlantica-nb:yearly_deforestation"],
-  ["Caatinga", "prodes-caatinga-nb:yearly_deforestation"],
-  ["Pantanal", "prodes-pantanal-nb:yearly_deforestation"],
   ["Pampa", "prodes-pampa-nb:yearly_deforestation"],
 ];
 
@@ -286,10 +283,11 @@ function criarCamadasZseeRondonia() {
 const camadasExternasFallback = [
   {
     titulo: "Embargos IBAMA",
-    typeName: "publica:vw_brasil_adm_embargo_a",
-    wfs: "https://siscom.ibama.gov.br/geoserver/ows",
+    typeName: "ibama-adm-embargos-a",
+    sourceType: "arcgis-feature",
+    arcgisQueryUrl:
+      "https://pamgia.ibama.gov.br/server/rest/services/01_Publicacoes_Bases/adm_embargos_ibama_a/MapServer/0/query",
     minZoom: 7,
-    sourceType: "wfs",
     grupoExterno: "Fontes Externas",
   },
   ...criarCamadasProdesBiomas(),

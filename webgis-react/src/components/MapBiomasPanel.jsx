@@ -32,6 +32,7 @@ const COLECOES = [
 
 function extrairGeometria(camada) {
   if (!camada) return null;
+  if (typeof camada.toGeoJSON === 'function') return camada.toGeoJSON();
   if (camada.type === 'FeatureCollection') return camada;
   if (camada.type === 'Feature')           return camada;
   if (camada.type === 'Polygon' || camada.type === 'MultiPolygon') return camada;

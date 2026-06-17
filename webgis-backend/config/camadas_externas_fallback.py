@@ -97,12 +97,13 @@ INPE_PRODES_MOSAIC_TIMES = [
     "2024-01-01T00:00:00.000Z",
 ]
 
+# prodes-amazon-nb:yearly_deforestation_biome retorna 500 (coluna "uid" removida no TerraBrasilis).
+# Substituido por prodes-legal-amz:yearly_deforestation que funciona e cobre o mesmo territorio.
+# Mata Atlantica, Caatinga e Pantanal: WFS quebrado no TerraBrasilis pelo mesmo motivo (uid ausente).
+# Nenhuma versao WFS (1.0.0/2.0.0), endpoint ou parametro alternativo funciona para esses 3 biomas.
 PRODES_BIOMAS_LAYERS = [
-    ("Amazonia", "prodes-amazon-nb:yearly_deforestation_biome"),
+    ("Amazonia", "prodes-legal-amz:yearly_deforestation"),
     ("Cerrado", "prodes-cerrado-nb:yearly_deforestation"),
-    ("Mata Atlantica", "prodes-mata-atlantica-nb:yearly_deforestation"),
-    ("Caatinga", "prodes-caatinga-nb:yearly_deforestation"),
-    ("Pantanal", "prodes-pantanal-nb:yearly_deforestation"),
     ("Pampa", "prodes-pampa-nb:yearly_deforestation"),
 ]
 
@@ -300,10 +301,10 @@ def criar_camadas_zsee_rondonia():
 CAMADAS_EXTERNAS_FALLBACK = [
     {
         "titulo": "Embargos IBAMA",
-        "typeName": "publica:vw_brasil_adm_embargo_a",
-        "wfs": "https://siscom.ibama.gov.br/geoserver/ows",
+        "typeName": "ibama-adm-embargos-a",
+        "sourceType": "arcgis-feature",
+        "arcgisQueryUrl": "https://pamgia.ibama.gov.br/server/rest/services/01_Publicacoes_Bases/adm_embargos_ibama_a/MapServer/0/query",
         "minZoom": 7,
-        "sourceType": "wfs",
         "grupoExterno": "Fontes Externas",
     },
     *criar_camadas_prodes_biomas(),
