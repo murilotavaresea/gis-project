@@ -97,14 +97,16 @@ INPE_PRODES_MOSAIC_TIMES = [
     "2024-01-01T00:00:00.000Z",
 ]
 
-# prodes-amazon-nb:yearly_deforestation_biome retorna 500 (coluna "uid" removida no TerraBrasilis).
-# Substituido por prodes-legal-amz:yearly_deforestation que funciona e cobre o mesmo territorio.
-# Mata Atlantica, Caatinga e Pantanal: WFS quebrado no TerraBrasilis pelo mesmo motivo (uid ausente).
-# Nenhuma versao WFS (1.0.0/2.0.0), endpoint ou parametro alternativo funciona para esses 3 biomas.
+# Todos os biomas usam o virtual service do GeoServer ({workspace}/yearly_deforestation/ows),
+# mais estavel que o endpoint generico /geoserver/ows que apresentou erros de uid em 2025.
+# prodes-legal-amz mantido para Amazonia (cobre Amazonia Legal, maior que o bioma).
 PRODES_BIOMAS_LAYERS = [
-    ("Amazonia", "prodes-legal-amz:yearly_deforestation"),
-    ("Cerrado", "prodes-cerrado-nb:yearly_deforestation"),
-    ("Pampa", "prodes-pampa-nb:yearly_deforestation"),
+    ("Amazonia",       "prodes-legal-amz:yearly_deforestation"),
+    ("Cerrado",        "prodes-cerrado-nb:yearly_deforestation"),
+    ("Pampa",          "prodes-pampa-nb:yearly_deforestation"),
+    ("Mata Atlantica", "prodes-mata-atlantica-nb:yearly_deforestation"),
+    ("Caatinga",       "prodes-caatinga-nb:yearly_deforestation"),
+    ("Pantanal",       "prodes-pantanal-nb:yearly_deforestation"),
 ]
 
 PLANET_RONDONIA_2026_LAYERS = [
@@ -263,7 +265,7 @@ def criar_camadas_prodes_biomas():
         {
             "titulo": f"PRODES {bioma} - Desmatamento anual",
             "typeName": type_name,
-            "wfs": "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
+            "wfs": f"https://terrabrasilis.dpi.inpe.br/geoserver/{type_name.split(':')[0]}/yearly_deforestation/ows",
             "featureFilter": {
                 "field": "year",
                 "operator": "gte",
@@ -283,15 +285,10 @@ def criar_camadas_zsee_rondonia():
         {
             "id": "zsee-rondonia-2005",
             "titulo": "ZSEE Rondonia 2005",
-            "typeName": "cogeo:ZSEE_2Aprox_2005_312_SIRGAS2000_4674",
-            "wfs": "https://geoportal.sedam.ro.gov.br/geoserver/ows",
+            "sourceType": "geojson-static",
+            "geojsonPath": "/camadas/local/zsee_rondonia_2005",
             "minZoom": 6,
-            "sourceType": "wfs",
-            "wfsVersion": "2.0.0",
-            "useProxy": "always",
-            "useBbox": False,
             "opacity": 0.82,
-            "requestTimeoutMs": 45000,
             "grupoExterno": "Fontes Externas",
             "subgrupoExterno": "SEDAM RO",
         }

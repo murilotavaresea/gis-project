@@ -98,9 +98,12 @@ const INPE_PRODES_MOSAIC_TIMES = [
 ];
 
 const PRODES_BIOMAS_LAYERS = [
-  ["Amazonia", "prodes-legal-amz:yearly_deforestation"],
-  ["Cerrado", "prodes-cerrado-nb:yearly_deforestation"],
-  ["Pampa", "prodes-pampa-nb:yearly_deforestation"],
+  ["Amazonia",       "prodes-legal-amz:yearly_deforestation"],
+  ["Cerrado",        "prodes-cerrado-nb:yearly_deforestation"],
+  ["Pampa",          "prodes-pampa-nb:yearly_deforestation"],
+  ["Mata Atlantica", "prodes-mata-atlantica-nb:yearly_deforestation"],
+  ["Caatinga",       "prodes-caatinga-nb:yearly_deforestation"],
+  ["Pantanal",       "prodes-pantanal-nb:yearly_deforestation"],
 ];
 
 const PLANET_RONDONIA_2026_LAYERS = [
@@ -247,7 +250,7 @@ function criarCamadasProdesBiomas() {
   return PRODES_BIOMAS_LAYERS.map(([bioma, typeName]) => ({
     titulo: `PRODES ${bioma} - Desmatamento anual`,
     typeName,
-    wfs: "https://terrabrasilis.dpi.inpe.br/geoserver/ows",
+    wfs: `https://terrabrasilis.dpi.inpe.br/geoserver/${typeName.split(":")[0]}/yearly_deforestation/ows`,
     featureFilter: {
       field: "year",
       operator: "gte",
@@ -265,15 +268,10 @@ function criarCamadasZseeRondonia() {
     {
       id: "zsee-rondonia-2005",
       titulo: "ZSEE Rondonia 2005",
-      typeName: "cogeo:ZSEE_2Aprox_2005_312_SIRGAS2000_4674",
-      wfs: "https://geoportal.sedam.ro.gov.br/geoserver/ows",
+      sourceType: "geojson-static",
+      geojsonPath: "/camadas/local/zsee_rondonia_2005",
       minZoom: 6,
-      sourceType: "wfs",
-      wfsVersion: "2.0.0",
-      useProxy: "always",
-      useBbox: false,
       opacity: 0.82,
-      requestTimeoutMs: 45000,
       grupoExterno: "Fontes Externas",
       subgrupoExterno: "SEDAM RO",
     },
