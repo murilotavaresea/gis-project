@@ -268,6 +268,12 @@ init_db()
 if os.getenv("CREATE_TEST_USER", "").lower() == "true":
     criar_usuario_teste()
 
+# Inicia o scheduler apenas no processo principal (nao no reloader do Flask dev)
+if os.getenv("ETL_SCHEDULER_ENABLED", "true").lower() == "true" and \
+        os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+    from scheduler import iniciar_scheduler
+    iniciar_scheduler()
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)

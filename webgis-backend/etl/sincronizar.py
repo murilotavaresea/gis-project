@@ -89,7 +89,11 @@ def _importar_arcgis(cfg, engine):
         features = data.get("features", [])
         todos.extend(features)
 
-        if len(features) < page_size or not data.get("properties", {}).get("exceededTransferLimit"):
+        exceeded = (
+            data.get("exceededTransferLimit")
+            or data.get("properties", {}).get("exceededTransferLimit")
+        )
+        if len(features) < page_size or not exceeded:
             break
         offset += page_size
 

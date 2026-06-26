@@ -23,11 +23,11 @@ CAMADAS_LOCAIS = [
         "wfs_version": "2.0.0",
     },
 
-    # Exemplo ArcGIS (descomente e ajuste quando precisar):
-    # {
-    #     "tabela": "embargos_ibama",
-    #     "titulo": "Embargos IBAMA",
-    #     "tipo_fonte": "arcgis",
-    #     "arcgis_url": "https://pamgia.ibama.gov.br/server/rest/services/01_Publicacoes_Bases/adm_embargos_ibama_a/MapServer/0/query",
-    # },
+    {
+        "tabela": "embargos_ibama",
+        "titulo": "Embargos IBAMA",
+        "tipo_fonte": "arcgis",
+        "arcgis_url": "https://pamgia.ibama.gov.br/server/rest/services/01_Publicacoes_Bases/adm_embargos_ibama_a/MapServer/0/query",
+        "arcgis_page_size": 1000,
+    },
 ]
