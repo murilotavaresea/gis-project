@@ -55,7 +55,7 @@ def _importar_wfs(cfg, engine):
     if gdf.crs is None or gdf.crs.to_epsg() != 4326:
         gdf = gdf.to_crs(epsg=4326)
 
-    gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty]
+    gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()]
     gdf.to_postgis(cfg["tabela"], engine, if_exists="replace", index=False)
     return len(gdf)
 
@@ -101,7 +101,7 @@ def _importar_arcgis(cfg, engine):
         raise RuntimeError("ArcGIS retornou zero feicoes.")
 
     gdf = gpd.GeoDataFrame.from_features(todos, crs=4326)
-    gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty]
+    gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notna()]
     gdf.to_postgis(cfg["tabela"], engine, if_exists="replace", index=False)
     return len(gdf)
 
